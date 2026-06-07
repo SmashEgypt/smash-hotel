@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smash Sporting Club — Hotel Management</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --blue: #185FA5; --blue-lt: #E6F1FB;
+    --green: #0F6E56; --green-lt: #E1F5EE;
+    --amber: #854F0B; --amber-lt: #FAEEDA;
+    --red: #A32D2D; --red-lt: #FCEBEB;
+    --purple: #534AB7; --purp-lt: #EEEDFE;
+    --gray: #888780; --gray-lt: #F5F3EE;
+    --dark: #1a1a18; --border: #E0DDD5;
+    --white: #ffffff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #F5F3EE; color: var(--dark); min-height: 100vh; }
+
+  /* ── LOGIN ── */
+  #login-screen {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, var(--blue) 0%, #0d3d6e 100%);
+  }
+  .login-box {
+    background: white; border-radius: 16px; padding: 36px 32px;
+    width: 100%; max-width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,.2);
+  }
+  .login-logo {
+    text-align: center; margin-bottom: 24px;
+  }
+  .login-logo .logo-circle {
+    width: 64px; height: 64px; background: var(--blue); border-radius: 16px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 22px; font-weight: 700; color: white; margin-bottom: 10px;
+  }
+  .login-logo h2 { font-size: 16px; color: var(--blue); font-weight: 600; }
+  .login-logo p { font-size: 12px; color: var(--gray); margin-top: 2px; }
+  .form-group { margin-bottom: 14px; }
+  .form-group label { display: block; font-size: 12px; color: var(--gray); margin-bottom: 4px; font-weight: 500; }
+  .form-group input, .form-group select {
+    width: 100%; padding: 10px 12px; border: 1.5px solid var(--border);
+    border-radius: 8px; font-size: 14px; color: var(--dark);
+    transition: border-color .2s; outline: none;
+  }
+  .form-group input:focus, .form-group select:focus { border-color: var(--blue); }
+  .login-btn {
+    width: 100%; padding: 12px; background: var(--blue); color: white;
+    border: none; border-radius: 8px; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: opacity .2s;
+  }
+  .login-btn:hover { opacity: .88; }
+  .login-error { color: var(--red); font-size: 12px; text-align: center; margin-top: 8px; display: none; }
+
+  /* ── APP SHELL ── */
+  #app { display: none; }
+  .topbar {
+    background: var(--blue); color: white; padding: 0 16px;
+    height: 52px; display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,.15);
+  }
+  .topbar-brand { font-size: 14px; font-weight: 700; letter-spacing: .3px; }
+  .topbar-brand span { opacity: .7; font-weight: 400; font-size: 12px; margin-right: 8px; }
+  .topbar-right { display: flex; align-items: center; gap: 10px; }
+  .user-badge {
+    font-size: 11px; background: rgba(255,255,255,.15); padding: 4px 10px;
+    border-radius: 20px; display: flex; align-items: center; gap: 5px;
+  }
+  .logout-btn {
+    font-size: 11px; background: rgba(255,255,255,.1); border: none;
+    color: white; padding: 5px 10px; border-radius: 6px; cursor: pointer;
+  }
+  .logout-btn:hover { background: rgba(255,255,255,.2); }
+
+  /* ── NAV TABS ── */
+  .nav-tabs {
+    background: white; border-bottom: 1px solid var(--border);
+    display: flex; overflow-x: auto; gap: 0;
+    scrollbar-width: none; position: sticky; top: 52px; z-index: 99;
+  }
+  .nav-tabs::-webkit-scrollbar { display: none; }
+  .nav-tab {
+    padding: 12px 16px; font-size: 12px; font-weight: 500; color: var(--gray);
+    border: none; background: none; cursor: pointer; white-space: nowrap;
+    border-bottom: 2px solid transparent; transition: all .2s;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .nav-tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+  .nav-tab:hover { color: var(--dark); background: var(--gray-lt); }
+
+  /* ── MAIN CONTENT ── */
+  .main { padding: 16px; max-width: 900px; margin: 0 auto; }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ── CARDS ── */
+  .card {
+    background: white; border-radius: 12px; padding: 16px;
+    border: 0.5px solid var(--border); margin-bottom: 12px;
+  }
+  .card-title {
+    font-size: 13px; font-weight: 600; color: var(--dark);
+    margin-bottom: 12px; display: flex; align-items: center; gap: 7px;
+  }
+  .card-title .dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* ── STATS GRID ── */
+  .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
+  .stat-card {
+    background: white; border-radius: 10px; padding: 14px;
+    border: 0.5px solid var(--border); text-align: center;
+  }
+  .stat-num { font-size: 28px; font-weight: 700; }
+  .stat-lbl { font-size: 11px; color: var(--gray); margin-top: 3px; }
+
+  /* ── ROOMS GRID ── */
+  .rooms-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
+  .room-card {
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 8px; text-align: center; cursor: pointer; transition: all .15s;
+    background: white;
+  }
+  .room-card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+  .room-card .r-num { font-size: 13px; font-weight: 600; color: var(--dark); margin-bottom: 6px; }
+  .room-card .r-beds { display: flex; gap: 3px; justify-content: center; flex-wrap: wrap; margin-bottom: 4px; }
+  .bed-dot { width: 12px; height: 12px; border-radius: 3px; }
+  .bed-free { background: var(--green); }
+  .bed-taken { background: var(--red); }
+  .room-card .r-count { font-size: 10px; color: var(--gray); }
+
+  /* ── FLOOR LABEL ── */
+  .floor-label {
+    font-size: 11px; font-weight: 600; color: white;
+    padding: 5px 12px; border-radius: 20px; margin-bottom: 10px; display: inline-block;
+  }
+
+  /* ── GUESTS TABLE ── */
+  .guests-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .guests-table th {
+    background: var(--blue); color: white; padding: 8px 10px;
+    text-align: right; font-weight: 500;
+  }
+  .guests-table td { padding: 8px 10px; border-bottom: 1px solid var(--gray-lt); }
+  .guests-table tr:hover td { background: var(--blue-lt); }
+  .status-badge {
+    display: inline-block; font-size: 10px; padding: 2px 8px;
+    border-radius: 10px; font-weight: 500;
+  }
+  .s-in { background: var(--green-lt); color: var(--green); }
+  .s-out { background: var(--gray-lt); color: var(--gray); }
+  .s-pending { background: var(--amber-lt); color: var(--amber); }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.5);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 200; padding: 16px; display: none;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: white; border-radius: 14px; padding: 20px;
+    width: 100%; max-width: 420px; max-height: 90vh; overflow-y: auto;
+  }
+  .modal-title { font-size: 14px; font-weight: 600; margin-bottom: 14px; color: var(--blue); }
+  .modal-close {
+    float: left; background: none; border: none; font-size: 18px;
+    cursor: pointer; color: var(--gray); margin-top: -4px;
+  }
+
+  /* ── FORM ELEMENTS ── */
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 11px; color: var(--gray); margin-bottom: 3px; font-weight: 500; }
+  .field input, .field select, .field textarea {
+    width: 100%; padding: 9px 11px; border: 1.5px solid var(--border);
+    border-radius: 8px; font-size: 13px; color: var(--dark); outline: none;
+  }
+  .field input:focus, .field select:focus { border-color: var(--blue); }
+  .field textarea { height: 70px; resize: none; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  /* ── BUTTONS ── */
+  .btn { padding: 9px 16px; border-radius: 8px; border: none; font-size: 12px; font-weight: 500; cursor: pointer; transition: opacity .2s; }
+  .btn:hover { opacity: .85; }
+  .btn-primary { background: var(--blue); color: white; }
+  .btn-success { background: var(--green); color: white; }
+  .btn-danger { background: var(--red); color: white; }
+  .btn-ghost { background: var(--gray-lt); color: var(--dark); border: 1px solid var(--border); }
+  .btn-full { width: 100%; padding: 11px; margin-top: 4px; }
+
+  /* ── CHECKLIST ── */
+  .check-item {
+    display: flex; align-items: center; gap: 10px; padding: 8px 0;
+    border-bottom: 1px solid var(--gray-lt); font-size: 12px; color: var(--dark);
+  }
+  .check-item input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--green); }
+  .check-item.checked { color: var(--gray); text-decoration: line-through; }
+
+  /* ── ALERT ── */
+  .alert { padding: 10px 14px; border-radius: 8px; font-size: 12px; margin-bottom: 10px; }
+  .alert-success { background: var(--green-lt); color: var(--green); }
+  .alert-error { background: var(--red-lt); color: var(--red); }
+  .alert-info { background: var(--blue-lt); color: var(--blue); }
+
+  /* ── SECTION HEADER ── */
+  .sec-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .sec-title { font-size: 14px; font-weight: 600; color: var(--dark); }
+
+  /* ── LOADING ── */
+  .loading { text-align: center; padding: 30px; color: var(--gray); font-size: 13px; }
+
+  /* ── MOBILE FRIENDLY ── */
+  @media (max-width: 480px) {
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .grid-2 { grid-template-columns: 1fr; }
+    .main { padding: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN SCREEN ══ -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="logo-circle">SSC</div>
+      <h2>Smash Sporting Club</h2>
+      <p>Accommodation Management System</p>
+    </div>
+    <div class="field">
+      <label>Username</label>
+      <input type="text" id="login-user" placeholder="Enter your username" />
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="login-pass" placeholder="Enter your password" onkeydown="if(event.key==='Enter')doLogin()" />
+    </div>
+    <button class="login-btn" onclick="doLogin()">Sign In</button>
+    <div class="login-error" id="login-error">Invalid username or password</div>
+  </div>
+</div>
+
+<!-- ══ MAIN APP ══ -->
+<div id="app">
+  <div class="topbar">
+    <div class="topbar-brand">
+      <span>SSC</span> Accommodation
+    </div>
+    <div class="topbar-right">
+      <div class="user-badge">
+        <span id="user-name-display">—</span>
+        <span style="opacity:.6;font-size:10px" id="user-role-display"></span>
+      </div>
+      <button class="logout-btn" onclick="doLogout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="nav-tabs" id="nav-tabs"></div>
+
+  <div class="main">
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-card"><div class="stat-num" style="color:var(--blue)" id="stat-men">—</div><div class="stat-lbl">Available — Men</div></div>
+        <div class="stat-card"><div class="stat-num" style="color:var(--purple)" id="stat-women">—</div><div class="stat-lbl">Available — Women</div></div>
+        <div class="stat-card"><div class="stat-num" style="color:var(--red)" id="stat-occ">—</div><div class="stat-lbl">Occupied Beds</div></div>
+        <div class="stat-card"><div class="stat-num" style="color:var(--green)" id="stat-free">—</div><div class="stat-lbl">Total Free Beds</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><div class="dot" style="background:var(--blue)"></div>Recent Activity</div>
+        <div id="recent-activity"><div class="loading">Loading...</div></div>
+      </div>
+    </div>
+
+    <!-- ROOMS -->
+    <div class="page" id="page-rooms">
+      <div class="card">
+        <div class="floor-label" style="background:var(--blue)">Floor 1 — Men (26 beds)</div>
+        <div class="rooms-grid" id="rooms-men"></div>
+      </div>
+      <div class="card">
+        <div class="floor-label" style="background:var(--purple)">Floor 2 — Women (14 beds)</div>
+        <div class="rooms-grid" id="rooms-women"></div>
+      </div>
+    </div>
+
+    <!-- BOOKINGS -->
+    <div class="page" id="page-bookings">
+      <div class="sec-header">
+        <span class="sec-title">Bookings</span>
+        <button class="btn btn-primary" onclick="openBookingModal()">+ New Booking</button>
+      </div>
+      <div id="bookings-alert"></div>
+      <div class="card">
+        <table class="guests-table">
+          <thead>
+            <tr>
+              <th>Guest</th>
+              <th>Room / Bed</th>
+              <th>Sport</th>
+              <th>Check-in</th>
+              <th>Check-out</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="bookings-body">
+            <tr><td colspan="7" class="loading">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- CLEANING -->
+    <div class="page" id="page-cleaning">
+      <div class="sec-header">
+        <span class="sec-title">Cleaning Checklist</span>
+        <select id="cleaning-room-select" style="padding:7px 10px;border-radius:8px;border:1px solid var(--border);font-size:12px;" onchange="loadCleaningChecklist()">
+          <option value="">Select Room...</option>
+        </select>
+      </div>
+      <div id="cleaning-alert"></div>
+      <div id="cleaning-content"></div>
+    </div>
+
+    <!-- SECURITY -->
+    <div class="page" id="page-security">
+      <div class="sec-header">
+        <span class="sec-title">Security Log</span>
+        <button class="btn btn-danger" onclick="openVisitorModal()">+ Register Visitor</button>
+      </div>
+      <div id="security-alert"></div>
+      <div class="card">
+        <table class="guests-table">
+          <thead>
+            <tr><th>Visitor</th><th>Room</th><th>Entry</th><th>Exit</th><th>Officer</th><th></th></tr>
+          </thead>
+          <tbody id="security-body">
+            <tr><td colspan="6" class="loading">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- WIFI -->
+    <div class="page" id="page-wifi">
+      <div class="card" style="text-align:center;padding:24px">
+        <div style="font-size:13px;font-weight:600;color:var(--blue);margin-bottom:16px">WiFi QR Code — Show to Guest</div>
+        <div id="qr-container" style="margin:0 auto 14px;width:180px;height:180px;background:var(--gray-lt);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--gray)">
+          Loading QR...
+        </div>
+        <div id="wifi-ssid" style="font-size:13px;font-weight:500;margin-bottom:4px"></div>
+        <div style="font-size:11px;color:var(--gray)">Scan with phone camera to connect</div>
+      </div>
+      <div id="wifi-it-panel" style="display:none">
+        <div class="card">
+          <div class="card-title"><div class="dot" style="background:var(--purple)"></div>IT — Change WiFi Password</div>
+          <div class="field"><label>Network Name (SSID)</label><input type="text" id="wifi-ssid-input" /></div>
+          <div class="field"><label>New Password</label><input type="text" id="wifi-pass-input" /></div>
+          <button class="btn btn-primary btn-full" onclick="updateWifi()">Update & Regenerate QR</button>
+          <div id="wifi-alert" style="margin-top:8px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- REPORTS -->
+    <div class="page" id="page-reports">
+      <div class="card">
+        <div class="card-title"><div class="dot" style="background:var(--amber)"></div>Monthly Summary</div>
+        <div id="reports-content"><div class="loading">Loading...</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ BOOKING MODAL ══ -->
+<div class="modal-overlay" id="booking-modal">
+  <div class="modal">
+    <div class="modal-title">
+      New Booking
+      <button class="modal-close" onclick="closeModal('booking-modal')">×</button>
+    </div>
+    <div class="grid-2">
+      <div class="field"><label>First Name *</label><input type="text" id="b-fname" /></div>
+      <div class="field"><label>Last Name *</label><input type="text" id="b-lname" /></div>
+    </div>
+    <div class="grid-2">
+      <div class="field"><label>Gender *</label>
+        <select id="b-gender" onchange="updateAvailableRooms()">
+          <option value="">Select...</option>
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+        </select>
+      </div>
+      <div class="field"><label>Nationality *</label><input type="text" id="b-nat" /></div>
+    </div>
+    <div class="grid-2">
+      <div class="field"><label>ID / Passport No. *</label><input type="text" id="b-id" /></div>
+      <div class="field"><label>Mobile</label><input type="tel" id="b-mobile" /></div>
+    </div>
+    <div class="grid-2">
+      <div class="field"><label>Sport</label>
+        <select id="b-sport">
+          <option value="">Select...</option>
+          <option>Football</option><option>Swimming</option><option>Tennis</option>
+          <option>Boxing</option><option>Athletics</option><option>Other</option>
+        </select>
+      </div>
+      <div class="field"><label>Role</label>
+        <select id="b-role">
+          <option value="">Select...</option>
+          <option>Player</option><option>Coach</option><option>Referee</option>
+          <option>Admin</option><option>Companion</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>Tournament / Event</label><input type="text" id="b-tournament" /></div>
+    <div class="field"><label>Team / Club</label><input type="text" id="b-team" /></div>
+    <div class="grid-2">
+      <div class="field"><label>Check-in *</label><input type="date" id="b-checkin" /></div>
+      <div class="field"><label>Check-out *</label><input type="date" id="b-checkout" /></div>
+    </div>
+    <div class="grid-2">
+      <div class="field"><label>Room *</label>
+        <select id="b-room" onchange="updateAvailableBeds()"><option value="">Select gender first</option></select>
+      </div>
+      <div class="field"><label>Bed *</label>
+        <select id="b-bed"><option value="">Select room first</option></select>
+      </div>
+    </div>
+    <div id="booking-modal-alert"></div>
+    <button class="btn btn-success btn-full" onclick="saveBooking()">Confirm Booking</button>
+  </div>
+</div>
+
+<!-- ══ VISITOR MODAL ══ -->
+<div class="modal-overlay" id="visitor-modal">
+  <div class="modal">
+    <div class="modal-title">
+      Register Visitor
+      <button class="modal-close" onclick="closeModal('visitor-modal')">×</button>
+    </div>
+    <div class="field"><label>Visitor Name *</label><input type="text" id="v-name" /></div>
+    <div class="field"><label>ID Number</label><input type="text" id="v-id" /></div>
+    <div class="field"><label>Room Being Visited *</label><input type="text" id="v-room" /></div>
+    <div class="field"><label>Guest Being Visited</label><input type="text" id="v-guest" /></div>
+    <div class="field"><label>Purpose</label><input type="text" id="v-purpose" /></div>
+    <div id="visitor-modal-alert"></div>
+    <button class="btn btn-danger btn-full" onclick="saveVisitor()">Register Entry</button>
+  </div>
+</div>
+
+<!-- ══ ROOM DETAIL MODAL ══ -->
+<div class="modal-overlay" id="room-modal">
+  <div class="modal">
+    <div class="modal-title" id="room-modal-title">Room Detail
+      <button class="modal-close" onclick="closeModal('room-modal')">×</button>
+    </div>
+    <div id="room-modal-content"></div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// SUPABASE INIT
+// ══════════════════════════════════════════
+const SUPABASE_URL = 'https://avtuipjcbjyhrwxjmrtj.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_z5m6mvk67X_ZM3EIXM19cw_HKG17icd';
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ══════════════════════════════════════════
+// STAFF ACCOUNTS (local — before DB setup)
+// ══════════════════════════════════════════
+const STAFF = [
+  { username:'manager',   password:'smash2024', name:'Hotel Manager',    role:'manager' },
+  { username:'reception', password:'smash2024', name:'Reception Staff',  role:'reception' },
+  { username:'cleaning',  password:'smash2024', name:'Cleaning Staff',   role:'cleaning' },
+  { username:'security',  password:'smash2024', name:'Security Officer', role:'security' },
+  { username:'it',        password:'smash2024', name:'IT Admin',         role:'it' },
+];
+
+// ══════════════════════════════════════════
+// ROOM STRUCTURE
+// ══════════════════════════════════════════
+const ROOMS = {
+  male: [
+    { num:'1', beds:['1A','1B','1C','1D'] },
+    { num:'2', beds:['2A','2B','2C','2D'] },
+    { num:'3', beds:['3A','3B','3C','3D'] },
+    { num:'4', beds:['4A','4B','4C','4D'] },
+    { num:'5', beds:['5A','5B','5C','5D'] },
+    { num:'6', beds:['6A','6B','6C','6D'] },
+    { num:'7', beds:['7A','7B'] },
+  ],
+  female: [
+    { num:'F1', beds:['F1A','F1B'] },
+    { num:'F2', beds:['F2A','F2B'] },
+    { num:'F3', beds:['F3A','F3B'] },
+    { num:'F4', beds:['F4A','F4B'] },
+    { num:'F5', beds:['F5A','F5B'] },
+    { num:'F6', beds:['F6A','F6B'] },
+    { num:'F7', beds:['F7A','F7B'] },
+  ]
+};
+
+const CLEANING_CHECKLIST = [
+  'Change sheets & bottom cover',
+  'Change pillowcases',
+  'Change blankets / duvets if needed',
+  'Make the bed neatly',
+  'Inspect mattress and bed frame',
+  'Clean & disinfect toilet and sink',
+  'Clean shower floor and walls',
+  'Replace all towels (body, face, floor)',
+  'Refill soap and shampoo',
+  'Clean mirror — no spots',
+  'Check water pressure & heater',
+  'Open curtains and ventilate (15 min)',
+  'Check curtains for stains',
+  'Clean wardrobe inside and out',
+  'Count and check hangers',
+  'Wipe table and chairs',
+  'Sweep and mop floor',
+  'Check walls for stains',
+  'Inspect electrical sockets',
+  'Check all lights work',
+  'Empty and clean waste bin',
+  'Use air freshener',
+  'Check bathroom smell',
+  'Check drains and plugholes',
+  'Assess overall room smell on entry',
+];
+
+// ══════════════════════════════════════════
+// APP STATE
+// ══════════════════════════════════════════
+let currentUser = null;
+let bookings = [];
+let visitors = [];
+let wifiData = { ssid: 'Smash-Hotel', password: 'smash2024' };
+
+// ══════════════════════════════════════════
+// LOGIN
+// ══════════════════════════════════════════
+async function doLogin() {
+  const u = document.getElementById('login-user').value.trim().toLowerCase();
+  const p = document.getElementById('login-pass').value;
+  const staff = STAFF.find(s => s.username === u && s.password === p);
+  if (!staff) {
+    document.getElementById('login-error').style.display = 'block';
+    return;
+  }
+  currentUser = staff;
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('user-name-display').textContent = staff.name;
+  document.getElementById('user-role-display').textContent = staff.role.toUpperCase();
+  buildNav();
+  loadDashboard();
+}
+
+function doLogout() {
+  currentUser = null;
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-user').value = '';
+  document.getElementById('login-pass').value = '';
+}
+
+// ══════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════
+const NAV_CONFIG = {
+  manager:   ['dashboard','rooms','bookings','cleaning','security','wifi','reports'],
+  reception: ['dashboard','rooms','bookings','cleaning'],
+  cleaning:  ['cleaning'],
+  security:  ['security'],
+  it:        ['wifi'],
+};
+const NAV_LABELS = {
+  dashboard:'🏠 Dashboard', rooms:'🚪 Rooms', bookings:'📅 Bookings',
+  cleaning:'✨ Cleaning', security:'🛡 Security', wifi:'📶 WiFi', reports:'📊 Reports'
+};
+
+function buildNav() {
+  const tabs = NAV_CONFIG[currentUser.role] || [];
+  const nav = document.getElementById('nav-tabs');
+  nav.innerHTML = '';
+  tabs.forEach((t,i) => {
+    const btn = document.createElement('button');
+    btn.className = 'nav-tab' + (i===0?' active':'');
+    btn.textContent = NAV_LABELS[t];
+    btn.onclick = () => switchPage(t, btn);
+    nav.appendChild(btn);
+  });
+  // show first page
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + tabs[0])?.classList.add('active');
+  if (tabs[0] === 'cleaning') loadCleaning();
+  if (tabs[0] === 'security') loadSecurity();
+  if (tabs[0] === 'wifi') loadWifi();
+}
+
+function switchPage(page, btn) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + page)?.classList.add('active');
+  if (page==='dashboard') loadDashboard();
+  if (page==='rooms') loadRooms();
+  if (page==='bookings') loadBookings();
+  if (page==='cleaning') loadCleaning();
+  if (page==='security') loadSecurity();
+  if (page==='wifi') loadWifi();
+  if (page==='reports') loadReports();
+}
+
+// ══════════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════════
+async function loadDashboard() {
+  const { data: bks } = await db.from('bookings').select('*').eq('status','checked_in');
+  bookings = bks || [];
+  const takenBeds = bookings.map(b => b.bed_id);
+  const menBeds = ROOMS.male.flatMap(r => r.beds);
+  const womenBeds = ROOMS.female.flatMap(r => r.beds);
+  const freeMen = menBeds.filter(b => !takenBeds.includes(b)).length;
+  const freeWomen = womenBeds.filter(b => !takenBeds.includes(b)).length;
+  document.getElementById('stat-men').textContent = freeMen;
+  document.getElementById('stat-women').textContent = freeWomen;
+  document.getElementById('stat-occ').textContent = takenBeds.length;
+  document.getElementById('stat-free').textContent = freeMen + freeWomen;
+
+  const { data: recent } = await db.from('bookings').select('*').order('created_at',{ascending:false}).limit(5);
+  const ra = document.getElementById('recent-activity');
+  if (!recent || !recent.length) { ra.innerHTML = '<div class="loading">No recent activity</div>'; return; }
+  ra.innerHTML = recent.map(b => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--gray-lt);font-size:12px">
+      <span>${b.guest_name}</span>
+      <span style="color:var(--gray)">Room ${b.room_num} — Bed ${b.bed_id}</span>
+      <span class="status-badge ${b.status==='checked_in'?'s-in':b.status==='checked_out'?'s-out':'s-pending'}">${b.status}</span>
+    </div>
+  `).join('');
+}
+
+// ══════════════════════════════════════════
+// ROOMS
+// ══════════════════════════════════════════
+async function loadRooms() {
+  const { data: bks } = await db.from('bookings').select('bed_id,guest_name').eq('status','checked_in');
+  const takenMap = {};
+  (bks||[]).forEach(b => takenMap[b.bed_id] = b.guest_name);
+
+  ['male','female'].forEach(gender => {
+    const container = document.getElementById('rooms-' + (gender==='male'?'men':'women'));
+    container.innerHTML = '';
+    ROOMS[gender].forEach(room => {
+      const freeCnt = room.beds.filter(b => !takenMap[b]).length;
+      const div = document.createElement('div');
+      div.className = 'room-card';
+      div.innerHTML = `
+        <div class="r-num">Room ${room.num}</div>
+        <div class="r-beds">${room.beds.map(b =>
+          `<div class="bed-dot ${takenMap[b]?'bed-taken':'bed-free'}" title="${takenMap[b]||'Free'}"></div>`
+        ).join('')}</div>
+        <div class="r-count">${freeCnt}/${room.beds.length} free</div>
+      `;
+      div.onclick = () => showRoomDetail(room, takenMap, gender);
+      container.appendChild(div);
+    });
+  });
+}
+
+function showRoomDetail(room, takenMap, gender) {
+  document.getElementById('room-modal-title').textContent = `Room ${room.num} — ${gender==='male'?'Men':'Women'}`;
+  document.getElementById('room-modal-content').innerHTML = room.beds.map(b => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--gray-lt);font-size:12px">
+      <span style="font-weight:500">Bed ${b}</span>
+      <span style="color:${takenMap[b]?'var(--red)':'var(--green)'}">${takenMap[b]||'Available'}</span>
+      <span class="status-badge ${takenMap[b]?'s-in':'s-out'}">${takenMap[b]?'Occupied':'Free'}</span>
+    </div>
+  `).join('');
+  document.getElementById('room-modal').classList.add('show');
+}
+
+// ══════════════════════════════════════════
+// BOOKINGS
+// ══════════════════════════════════════════
+async function loadBookings() {
+  const { data } = await db.from('bookings').select('*').order('created_at',{ascending:false});
+  const tbody = document.getElementById('bookings-body');
+  if (!data || !data.length) { tbody.innerHTML = '<tr><td colspan="7" class="loading">No bookings yet</td></tr>'; return; }
+  tbody.innerHTML = data.map(b => `
+    <tr>
+      <td><strong>${b.guest_name}</strong><br><span style="color:var(--gray);font-size:10px">${b.nationality||''}</span></td>
+      <td>Room ${b.room_num} / ${b.bed_id}</td>
+      <td>${b.sport||'—'}</td>
+      <td>${b.checkin_date||'—'}</td>
+      <td>${b.checkout_date||'—'}</td>
+      <td><span class="status-badge ${b.status==='checked_in'?'s-in':b.status==='checked_out'?'s-out':'s-pending'}">${b.status}</span></td>
+      <td>${b.status==='checked_in'?`<button class="btn btn-danger" style="padding:4px 8px;font-size:10px" onclick="checkOut('${b.id}')">Check Out</button>`:'—'}</td>
+    </tr>
+  `).join('');
+}
+
+function openBookingModal() {
+  ['b-fname','b-lname','b-nat','b-id','b-mobile','b-tournament','b-team'].forEach(id => document.getElementById(id).value='');
+  ['b-gender','b-sport','b-role','b-room','b-bed'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('b-checkin').value = new Date().toISOString().split('T')[0];
+  document.getElementById('booking-modal-alert').innerHTML='';
+  document.getElementById('booking-modal').classList.add('show');
+}
+
+async function updateAvailableRooms() {
+  const gender = document.getElementById('b-gender').value;
+  const roomSel = document.getElementById('b-room');
+  const bedSel = document.getElementById('b-bed');
+  if (!gender) { roomSel.innerHTML='<option>Select gender first</option>'; return; }
+  const { data: bks } = await db.from('bookings').select('bed_id').eq('status','checked_in');
+  const taken = (bks||[]).map(b => b.bed_id);
+  const rooms = ROOMS[gender];
+  roomSel.innerHTML = '<option value="">Select room...</option>' +
+    rooms.map(r => {
+      const free = r.beds.filter(b => !taken.includes(b)).length;
+      return `<option value="${r.num}" data-gender="${gender}" ${free===0?'disabled':''}>${r.num==='F1'||r.num==='F2'||r.num==='F3'||r.num==='F4'||r.num==='F5'||r.num==='F6'||r.num==='F7'?'Room '+r.num:'Room '+r.num} (${free} free)</option>`;
+    }).join('');
+  bedSel.innerHTML = '<option>Select room first</option>';
+}
+
+async function updateAvailableBeds() {
+  const gender = document.getElementById('b-gender').value;
+  const roomNum = document.getElementById('b-room').value;
+  if (!roomNum || !gender) return;
+  const room = ROOMS[gender].find(r => r.num === roomNum);
+  if (!room) return;
+  const { data: bks } = await db.from('bookings').select('bed_id').eq('status','checked_in');
+  const taken = (bks||[]).map(b => b.bed_id);
+  const bedSel = document.getElementById('b-bed');
+  bedSel.innerHTML = '<option value="">Select bed...</option>' +
+    room.beds.map(b => `<option value="${b}" ${taken.includes(b)?'disabled':''}>${b} ${taken.includes(b)?'(Occupied)':'(Free)'}</option>`).join('');
+}
+
+async function saveBooking() {
+  const fname = document.getElementById('b-fname').value.trim();
+  const lname = document.getElementById('b-lname').value.trim();
+  const gender = document.getElementById('b-gender').value;
+  const room = document.getElementById('b-room').value;
+  const bed = document.getElementById('b-bed').value;
+  const checkin = document.getElementById('b-checkin').value;
+  const checkout = document.getElementById('b-checkout').value;
+  const alertEl = document.getElementById('booking-modal-alert');
+
+  if (!fname||!lname||!gender||!room||!bed||!checkin) {
+    alertEl.innerHTML = '<div class="alert alert-error">Please fill all required fields</div>'; return;
+  }
+
+  const { error } = await db.from('bookings').insert({
+    guest_name: fname + ' ' + lname,
+    gender, room_num: room, bed_id: bed,
+    nationality: document.getElementById('b-nat').value,
+    id_number: document.getElementById('b-id').value,
+    mobile: document.getElementById('b-mobile').value,
+    sport: document.getElementById('b-sport').value,
+    role: document.getElementById('b-role').value,
+    tournament: document.getElementById('b-tournament').value,
+    team: document.getElementById('b-team').value,
+    checkin_date: checkin, checkout_date: checkout,
+    status: 'checked_in',
+    registered_by: currentUser.name,
+    created_at: new Date().toISOString()
+  });
+
+  if (error) { alertEl.innerHTML = `<div class="alert alert-error">${error.message}</div>`; return; }
+  closeModal('booking-modal');
+  showAlert('bookings-alert','Booking confirmed successfully!','success');
+  loadBookings();
+  loadDashboard();
+}
+
+async function checkOut(id) {
+  if (!confirm('Confirm check-out for this guest?')) return;
+  await db.from('bookings').update({ status:'checked_out', checked_out_by: currentUser.name, checkout_actual: new Date().toISOString() }).eq('id',id);
+  showAlert('bookings-alert','Guest checked out successfully','success');
+  loadBookings(); loadDashboard();
+}
+
+// ══════════════════════════════════════════
+// CLEANING
+// ══════════════════════════════════════════
+function loadCleaning() {
+  const sel = document.getElementById('cleaning-room-select');
+  const allRooms = [...ROOMS.male, ...ROOMS.female];
+  sel.innerHTML = '<option value="">Select Room...</option>' +
+    allRooms.map(r => `<option value="${r.num}">Room ${r.num}</option>`).join('');
+}
+
+function loadCleaningChecklist() {
+  const room = document.getElementById('cleaning-room-select').value;
+  const content = document.getElementById('cleaning-content');
+  if (!room) { content.innerHTML=''; return; }
+  content.innerHTML = `
+    <div class="card">
+      <div class="card-title"><div class="dot" style="background:var(--green)"></div>Room ${room} — Cleaning Checklist</div>
+      ${CLEANING_CHECKLIST.map((item,i) => `
+        <div class="check-item" id="ci-${i}">
+          <input type="checkbox" id="chk-${i}" onchange="toggleCheck(${i})">
+          <label for="chk-${i}" style="cursor:pointer;flex:1">${item}</label>
+        </div>
+      `).join('')}
+      <div style="margin-top:12px;text-align:center">
+        <span id="clean-progress" style="font-size:12px;color:var(--gray)">0 / ${CLEANING_CHECKLIST.length} completed</span>
+      </div>
+      <button class="btn btn-success btn-full" style="margin-top:10px" onclick="submitCleaning('${room}')">✓ Mark Room as Cleaned</button>
+    </div>
+  `;
+}
+
+function toggleCheck(i) {
+  const chk = document.getElementById('chk-'+i);
+  const item = document.getElementById('ci-'+i);
+  item.classList.toggle('checked', chk.checked);
+  const done = document.querySelectorAll('.check-item input:checked').length;
+  document.getElementById('clean-progress').textContent = `${done} / ${CLEANING_CHECKLIST.length} completed`;
+}
+
+async function submitCleaning(room) {
+  const checked = Array.from(document.querySelectorAll('.check-item input:checked')).length;
+  if (checked < CLEANING_CHECKLIST.length) {
+    if (!confirm(`Only ${checked}/${CLEANING_CHECKLIST.length} items checked. Submit anyway?`)) return;
+  }
+  await db.from('cleaning_logs').insert({
+    room_num: room, staff_name: currentUser.name,
+    items_completed: checked, total_items: CLEANING_CHECKLIST.length,
+    cleaned_at: new Date().toISOString()
+  });
+  showAlert('cleaning-alert','Room marked as cleaned!','success');
+  document.getElementById('cleaning-room-select').value='';
+  document.getElementById('cleaning-content').innerHTML='';
+}
+
+// ══════════════════════════════════════════
+// SECURITY
+// ══════════════════════════════════════════
+async function loadSecurity() {
+  const { data } = await db.from('visitor_logs').select('*').order('created_at',{ascending:false}).limit(20);
+  const tbody = document.getElementById('security-body');
+  if (!data||!data.length) { tbody.innerHTML='<tr><td colspan="6" class="loading">No visitors logged</td></tr>'; return; }
+  tbody.innerHTML = data.map(v => `
+    <tr>
+      <td><strong>${v.visitor_name}</strong></td>
+      <td>Room ${v.room_visited}</td>
+      <td>${v.entry_time ? new Date(v.entry_time).toLocaleTimeString() : '—'}</td>
+      <td>${v.exit_time ? new Date(v.exit_time).toLocaleTimeString() : '—'}</td>
+      <td>${v.officer_name}</td>
+      <td>${!v.exit_time ? `<button class="btn btn-ghost" style="padding:4px 8px;font-size:10px" onclick="registerExit('${v.id}')">Exit</button>` : '✓'}</td>
+    </tr>
+  `).join('');
+}
+
+function openVisitorModal() {
+  ['v-name','v-id','v-room','v-guest','v-purpose'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('visitor-modal-alert').innerHTML='';
+  document.getElementById('visitor-modal').classList.add('show');
+}
+
+async function saveVisitor() {
+  const name = document.getElementById('v-name').value.trim();
+  const room = document.getElementById('v-room').value.trim();
+  if (!name||!room) {
+    document.getElementById('visitor-modal-alert').innerHTML='<div class="alert alert-error">Name and room are required</div>'; return;
+  }
+  await db.from('visitor_logs').insert({
+    visitor_name: name,
+    id_number: document.getElementById('v-id').value,
+    room_visited: room,
+    guest_name: document.getElementById('v-guest').value,
+    purpose: document.getElementById('v-purpose').value,
+    officer_name: currentUser.name,
+    entry_time: new Date().toISOString()
+  });
+  closeModal('visitor-modal');
+  showAlert('security-alert','Visitor registered!','success');
+  loadSecurity();
+}
+
+async function registerExit(id) {
+  await db.from('visitor_logs').update({ exit_time: new Date().toISOString() }).eq('id',id);
+  loadSecurity();
+}
+
+// ══════════════════════════════════════════
+// WIFI
+// ══════════════════════════════════════════
+async function loadWifi() {
+  const { data } = await db.from('wifi_settings').select('*').limit(1).single();
+  if (data) wifiData = data;
+  document.getElementById('wifi-ssid').textContent = 'Network: ' + wifiData.ssid;
+  // Generate QR
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent('WIFI:T:WPA;S:'+wifiData.ssid+';P:'+wifiData.password+';;')}`;
+  document.getElementById('qr-container').innerHTML = `<img src="${qrUrl}" style="border-radius:8px;width:100%" alt="WiFi QR Code" />`;
+  if (currentUser.role==='it') {
+    document.getElementById('wifi-it-panel').style.display='block';
+    document.getElementById('wifi-ssid-input').value = wifiData.ssid;
+    document.getElementById('wifi-pass-input').value = wifiData.password;
+  }
+}
+
+async function updateWifi() {
+  const ssid = document.getElementById('wifi-ssid-input').value.trim();
+  const pass = document.getElementById('wifi-pass-input').value.trim();
+  if (!ssid||!pass) { showAlert('wifi-alert','Fill both fields','error'); return; }
+  await db.from('wifi_settings').upsert({ id:1, ssid, password:pass, changed_by:currentUser.name, changed_at:new Date().toISOString() });
+  wifiData = { ssid, password:pass };
+  showAlert('wifi-alert','WiFi updated! QR refreshed.','success');
+  loadWifi();
+}
+
+// ══════════════════════════════════════════
+// REPORTS
+// ══════════════════════════════════════════
+async function loadReports() {
+  const { data: bks } = await db.from('bookings').select('*');
+  const { data: vis } = await db.from('visitor_logs').select('*');
+  const { data: cln } = await db.from('cleaning_logs').select('*');
+  const total = bks?.length||0;
+  const active = bks?.filter(b=>b.status==='checked_in').length||0;
+  const sports = {};
+  bks?.forEach(b => { if(b.sport) sports[b.sport]=(sports[b.sport]||0)+1; });
+  const topSport = Object.entries(sports).sort((a,b)=>b[1]-a[1])[0];
+
+  document.getElementById('reports-content').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <div style="background:var(--blue-lt);border-radius:8px;padding:12px;text-align:center">
+        <div style="font-size:22px;font-weight:700;color:var(--blue)">${total}</div>
+        <div style="font-size:11px;color:var(--gray)">Total Bookings</div>
+      </div>
+      <div style="background:var(--green-lt);border-radius:8px;padding:12px;text-align:center">
+        <div style="font-size:22px;font-weight:700;color:var(--green)">${active}</div>
+        <div style="font-size:11px;color:var(--gray)">Currently Checked In</div>
+      </div>
+      <div style="background:var(--amber-lt);border-radius:8px;padding:12px;text-align:center">
+        <div style="font-size:22px;font-weight:700;color:var(--amber)">${vis?.length||0}</div>
+        <div style="font-size:11px;color:var(--gray)">Total Visitors</div>
+      </div>
+      <div style="background:var(--purp-lt);border-radius:8px;padding:12px;text-align:center">
+        <div style="font-size:22px;font-weight:700;color:var(--purple)">${cln?.length||0}</div>
+        <div style="font-size:11px;color:var(--gray)">Cleaning Sessions</div>
+      </div>
+    </div>
+    ${topSport ? `<div style="font-size:12px;color:var(--gray);padding:8px 0">Most common sport: <strong style="color:var(--dark)">${topSport[0]}</strong> (${topSport[1]} guests)</div>` : ''}
+    ${Object.keys(sports).length ? `
+      <div style="font-size:12px;font-weight:600;margin:8px 0 6px">Sports Breakdown</div>
+      ${Object.entries(sports).map(([s,c]) => `
+        <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--gray-lt);font-size:12px">
+          <span>${s}</span><span style="font-weight:600;color:var(--blue)">${c}</span>
+        </div>
+      `).join('')}
+    ` : ''}
+  `;
+}
+
+// ══════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+function showAlert(id, msg, type) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+  setTimeout(() => { el.innerHTML=''; }, 3000);
+}
+</script>
+</body>
+</html>
