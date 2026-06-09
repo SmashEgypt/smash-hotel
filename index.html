@@ -7,8 +7,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
-    --blue: #185FA5; --blue-lt: #E6F1FB;
-    --green: #0F6E56; --green-lt: #E1F5EE;
+    --blue: #1B2D5B; --blue-lt: #EEF2FF;
+    --green: #1B2D5B; --green-lt: #EEF2FF;
     --amber: #854F0B; --amber-lt: #FAEEDA;
     --red: #A32D2D; --red-lt: #FCEBEB;
     --purple: #534AB7; --purp-lt: #EEEDFE;
@@ -22,7 +22,7 @@
   /* ── LOGIN ── */
   #login-screen {
     min-height: 100vh; display: flex; align-items: center; justify-content: center;
-    background: linear-gradient(135deg, var(--blue) 0%, #0d3d6e 100%);
+    background: linear-gradient(160deg, #0D1B3E 0%, #1B2D5B 55%, #243670 100%);
   }
   .login-box {
     background: white; border-radius: 16px; padding: 36px 32px;
@@ -76,19 +76,19 @@
 
   /* ── NAV TABS ── */
   .nav-tabs {
-    background: white; border-bottom: 1px solid var(--border);
+    background: #243670; border-bottom: 2.5px solid #D4A017;
     display: flex; overflow-x: auto; gap: 0;
-    scrollbar-width: none; position: sticky; top: 52px; z-index: 99;
+    scrollbar-width: none; position: sticky; top: 54px; z-index: 99;
   }
   .nav-tabs::-webkit-scrollbar { display: none; }
   .nav-tab {
-    padding: 12px 16px; font-size: 12px; font-weight: 500; color: var(--gray);
+    padding: 12px 16px; font-size: 12px; font-weight: 500; color: rgba(255,255,255,.6);
     border: none; background: none; cursor: pointer; white-space: nowrap;
-    border-bottom: 2px solid transparent; transition: all .2s;
+    border-bottom: 3px solid transparent; transition: all .2s;
     display: flex; align-items: center; gap: 5px;
   }
-  .nav-tab.active { color: var(--blue); border-bottom-color: var(--blue); }
-  .nav-tab:hover { color: var(--dark); background: var(--gray-lt); }
+  .nav-tab.active { color: white; border-bottom-color: #D4A017; background: rgba(0,0,0,.1); }
+  .nav-tab:hover { color: white; background: rgba(0,0,0,.1); }
 
   /* ── MAIN CONTENT ── */
   .main { padding: 16px; max-width: 900px; margin: 0 auto; }
@@ -126,7 +126,7 @@
   .room-card .r-num { font-size: 13px; font-weight: 600; color: var(--dark); margin-bottom: 6px; }
   .room-card .r-beds { display: flex; gap: 3px; justify-content: center; flex-wrap: wrap; margin-bottom: 4px; }
   .bed-dot { width: 12px; height: 12px; border-radius: 3px; }
-  .bed-free { background: var(--green); }
+  .bed-free { background: #1B2D5B; }
   .bed-taken { background: var(--red); }
   .room-card .r-count { font-size: 10px; color: var(--gray); }
 
@@ -139,7 +139,7 @@
   /* ── GUESTS TABLE ── */
   .guests-table { width: 100%; border-collapse: collapse; font-size: 12px; }
   .guests-table th {
-    background: var(--blue); color: white; padding: 8px 10px;
+    background: #1B2D5B; color: white; padding: 8px 10px;
     text-align: right; font-weight: 500;
   }
   .guests-table td { padding: 8px 10px; border-bottom: 1px solid var(--gray-lt); }
@@ -184,7 +184,7 @@
   .btn { padding: 9px 16px; border-radius: 8px; border: none; font-size: 12px; font-weight: 500; cursor: pointer; transition: opacity .2s; }
   .btn:hover { opacity: .85; }
   .btn-primary { background: var(--blue); color: white; }
-  .btn-success { background: var(--green); color: white; }
+  .btn-success { background: #243670; color: white; }
   .btn-danger { background: var(--red); color: white; }
   .btn-ghost { background: var(--gray-lt); color: var(--dark); border: 1px solid var(--border); }
   .btn-full { width: 100%; padding: 11px; margin-top: 4px; }
@@ -194,7 +194,7 @@
     display: flex; align-items: center; gap: 10px; padding: 8px 0;
     border-bottom: 1px solid var(--gray-lt); font-size: 12px; color: var(--dark);
   }
-  .check-item input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--green); }
+  .check-item input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; accent-color: #1B2D5B; }
   .check-item.checked { color: var(--gray); text-decoration: line-through; }
 
   /* ── ALERT ── */
@@ -277,7 +277,7 @@
     <!-- ROOMS -->
     <div class="page" id="page-rooms">
       <div class="card">
-        <div class="floor-label" style="background:var(--blue)">Floor 1 — Men (22 beds)</div>
+        <div class="floor-label" style="background:#1B2D5B">Floor 1 — Men (22 beds)</div>
         <div class="rooms-grid" id="rooms-men"></div>
       </div>
       <div class="card">
@@ -1221,6 +1221,19 @@ function showAlert(id, msg, type) {
   el.innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
   setTimeout(() => { el.innerHTML=''; }, 3000);
 }
+
+// ── SUPABASE KEEP-ALIVE PING ──
+// Pings every 5 days so Supabase never pauses
+(function keepAlive() {
+  async function ping() {
+    try {
+      await db.from('wifi_settings').select('id').limit(1);
+      console.log('Supabase ping OK —', new Date().toLocaleString());
+    } catch(e) {}
+  }
+  ping(); // ping on load
+  setInterval(ping, 5 * 24 * 60 * 60 * 1000); // ping every 5 days
+})();
 </script>
 </body>
 </html>
