@@ -605,10 +605,12 @@ function buildNav() {
 }
 
 function switchPage(page, btn) {
+  document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('show'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   btn.classList.add('active');
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById('page-' + page)?.classList.add('active');
+  var target = document.getElementById('page-' + page);
+  if (target) target.classList.add('active');
   if (page==='dashboard') loadDashboard();
   if (page==='rooms') loadRooms();
   if (page==='bookings') loadBookings();
@@ -675,15 +677,18 @@ async function loadRooms() {
 }
 
 function showRoomDetail(room, takenMap, gender) {
-  document.getElementById('room-modal-title').textContent = `Room ${room.num} — ${gender==='male'?'Men':'Women'}`;
-  document.getElementById('room-modal-content').innerHTML = room.beds.map(b => `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--gray-lt);font-size:12px">
-      <span style="font-weight:500">Bed ${b}</span>
-      <span style="color:${takenMap[b]?'var(--red)':'var(--green)'}">${takenMap[b]||'Available'}</span>
-      <span class="status-badge ${takenMap[b]?'s-in':'s-out'}">${takenMap[b]?'Occupied':'Free'}</span>
-    </div>
-  `).join('');
-  document.getElementById('room-modal').classList.add('show');
+  closeModal('room-modal');
+  setTimeout(() => {
+    document.getElementById('room-modal-title').textContent = `Room ${room.num} — ${gender==='male'?'Men':'Women'}`;
+    document.getElementById('room-modal-content').innerHTML = room.beds.map(b => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--gray-lt);font-size:12px">
+        <span style="font-weight:600;font-size:13px">Bed ${b}</span>
+        <span style="color:${takenMap[b]?'var(--red)':'var(--green)'};font-weight:500">${takenMap[b]||'Available'}</span>
+        <span class="status-badge ${takenMap[b]?'s-in':'s-out'}">${takenMap[b]?'Occupied':'Free'}</span>
+      </div>
+    `).join('');
+    document.getElementById('room-modal').classList.add('show');
+  }, 50);
 }
 
 // ══════════════════════════════════════════
@@ -966,6 +971,13 @@ async function loadReports() {
 // HELPERS
 // ══════════════════════════════════════════
 function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+// Close modal when clicking outside
+document.addEventListener('click', function(e) {
+  if (e.target.classList.contains('modal-overlay')) {
+    e.target.classList.remove('show');
+  }
+});
 function showAlert(id, msg, type) {
   const el = document.getElementById(id);
   if (!el) return;
