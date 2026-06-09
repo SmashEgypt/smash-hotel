@@ -386,10 +386,40 @@
 
     <!-- REPORTS -->
     <div class="page" id="page-reports">
-      <div class="card">
-        <div class="card-title"><div class="dot" style="background:var(--amber)"></div>Monthly Summary</div>
-        <div id="reports-content"><div class="loading">Loading...</div></div>
+
+      <!-- Filter Bar -->
+      <div class="card" style="margin-bottom:10px">
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+          <div style="font-size:13px;font-weight:700;color:var(--navy2);margin-left:auto">📊 Reports</div>
+
+          <!-- Period Tabs -->
+          <div style="display:flex;gap:4px;background:var(--gray-lt);border-radius:10px;padding:3px">
+            <button class="rperiod-btn active" onclick="setReportPeriod('daily',this)" style="padding:5px 10px;font-size:11px;font-weight:600;border:none;border-radius:7px;cursor:pointer;background:var(--navy2);color:white">Daily</button>
+            <button class="rperiod-btn" onclick="setReportPeriod('weekly',this)" style="padding:5px 10px;font-size:11px;font-weight:600;border:none;border-radius:7px;cursor:pointer;background:transparent;color:var(--gray)">Weekly</button>
+            <button class="rperiod-btn" onclick="setReportPeriod('monthly',this)" style="padding:5px 10px;font-size:11px;font-weight:600;border:none;border-radius:7px;cursor:pointer;background:transparent;color:var(--gray)">Monthly</button>
+            <button class="rperiod-btn" onclick="setReportPeriod('custom',this)" style="padding:5px 10px;font-size:11px;font-weight:600;border:none;border-radius:7px;cursor:pointer;background:transparent;color:var(--gray)">Custom</button>
+          </div>
+
+          <!-- Custom Date Range -->
+          <div id="custom-dates" style="display:none;gap:6px;align-items:center;flex-wrap:wrap">
+            <input type="date" id="report-from" style="padding:5px 8px;border:1px solid var(--border);border-radius:8px;font-size:11px">
+            <span style="font-size:11px;color:var(--gray)">to</span>
+            <input type="date" id="report-to" style="padding:5px 8px;border:1px solid var(--border);border-radius:8px;font-size:11px">
+          </div>
+
+          <button onclick="generateReports()" style="padding:7px 14px;background:linear-gradient(135deg,var(--navy),var(--navy2));color:white;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">🔍 Generate</button>
+        </div>
       </div>
+
+      <!-- Export Buttons -->
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <button onclick="exportPDF()" style="padding:8px 14px;background:linear-gradient(135deg,#C62828,#E53935);color:white;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(198,40,40,.3)">📄 Export PDF</button>
+        <button onclick="exportExcel()" style="padding:8px 14px;background:linear-gradient(135deg,#1B5E20,#2E7D32);color:white;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(27,94,32,.3)">📊 Export Excel</button>
+      </div>
+
+      <!-- Report Content -->
+      <div id="reports-content"><div class="loading">Select a period and click Generate</div></div>
+
     </div>
   </div>
 </div>
@@ -1184,45 +1214,332 @@ async function updateWifi() {
 // ══════════════════════════════════════════
 // REPORTS
 // ══════════════════════════════════════════
-async function loadReports() {
-  const { data: bks } = await db.from('bookings').select('*');
-  const { data: vis } = await db.from('visitor_logs').select('*');
-  const { data: cln } = await db.from('cleaning_logs').select('*');
-  const total = bks?.length||0;
-  const active = bks?.filter(b=>b.status==='checked_in').length||0;
-  const sports = {};
-  bks?.forEach(b => { if(b.sport) sports[b.sport]=(sports[b.sport]||0)+1; });
-  const topSport = Object.entries(sports).sort((a,b)=>b[1]-a[1])[0];
+var reportPeriod = 'daily';
+var reportData = { bookings: [], visitors: [], cleaning: [] };
+
+function loadReports() {
+  // Just show the UI — user clicks Generate
+  document.getElementById('reports-content').innerHTML = '<div class="loading">Select a period and click Generate</div>';
+}
+
+function setReportPeriod(period, btn) {
+  reportPeriod = period;
+  document.querySelectorAll('.rperiod-btn').forEach(b => {
+    b.style.background = 'transparent';
+    b.style.color = 'var(--gray)';
+  });
+  btn.style.background = 'var(--navy2)';
+  btn.style.color = 'white';
+  var cd = document.getElementById('custom-dates');
+  cd.style.display = period === 'custom' ? 'flex' : 'none';
+}
+
+function getDateRange() {
+  var now = new Date();
+  var from, to;
+  to = new Date(now); to.setHours(23,59,59,999);
+  if (reportPeriod === 'daily') {
+    from = new Date(now); from.setHours(0,0,0,0);
+  } else if (reportPeriod === 'weekly') {
+    from = new Date(now); from.setDate(now.getDate() - 7); from.setHours(0,0,0,0);
+  } else if (reportPeriod === 'monthly') {
+    from = new Date(now); from.setDate(1); from.setHours(0,0,0,0);
+  } else {
+    var f = document.getElementById('report-from').value;
+    var t = document.getElementById('report-to').value;
+    if (!f || !t) { alert('Please select date range'); return null; }
+    from = new Date(f); from.setHours(0,0,0,0);
+    to = new Date(t); to.setHours(23,59,59,999);
+  }
+  return { from, to };
+}
+
+async function generateReports() {
+  var range = getDateRange();
+  if (!range) return;
+  document.getElementById('reports-content').innerHTML = '<div class="loading">Generating report...</div>';
+
+  var fromISO = range.from.toISOString();
+  var toISO = range.to.toISOString();
+
+  var [ bkRes, visRes, clnRes ] = await Promise.all([
+    db.from('bookings').select('*').gte('created_at', fromISO).lte('created_at', toISO),
+    db.from('visitor_logs').select('*').gte('created_at', fromISO).lte('created_at', toISO),
+    db.from('cleaning_logs').select('*').gte('cleaned_at', fromISO).lte('cleaned_at', toISO),
+  ]);
+
+  var bks = bkRes.data || [];
+  var vis = visRes.data || [];
+  var cln = clnRes.data || [];
+  reportData = { bookings: bks, visitors: vis, cleaning: cln };
+
+  var periodLabel = reportPeriod === 'daily' ? 'Today' :
+    reportPeriod === 'weekly' ? 'Last 7 Days' :
+    reportPeriod === 'monthly' ? 'This Month' :
+    range.from.toLocaleDateString() + ' → ' + range.to.toLocaleDateString();
+
+  var active = bks.filter(b => b.status === 'checked_in').length;
+  var checkedOut = bks.filter(b => b.status === 'checked_out').length;
+  var totalNights = 0;
+  bks.forEach(b => {
+    if (b.checkin_date && b.checkout_date) {
+      var d = Math.round((new Date(b.checkout_date) - new Date(b.checkin_date)) / 86400000);
+      if (d > 0) totalNights += d;
+    }
+  });
+
+  var menBks = bks.filter(b => b.gender === 'male').length;
+  var womenBks = bks.filter(b => b.gender === 'female').length;
+
+  var sports = {};
+  bks.forEach(b => { if (b.sport) sports[b.sport] = (sports[b.sport]||0) + 1; });
+
+  var meals = { BB: 0, HB: 0, FB: 0, none: 0 };
+  bks.forEach(b => { if (b.meals && meals[b.meals] !== undefined) meals[b.meals]++; else if (!b.meals) meals.none++; });
+
+  var nats = {};
+  bks.forEach(b => { if (b.nationality) nats[b.nationality] = (nats[b.nationality]||0) + 1; });
 
   document.getElementById('reports-content').innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
-      <div style="background:var(--blue-lt);border-radius:8px;padding:12px;text-align:center">
-        <div style="font-size:22px;font-weight:700;color:var(--blue)">${total}</div>
-        <div style="font-size:11px;color:var(--gray)">Total Bookings</div>
+
+    <!-- PERIOD LABEL -->
+    <div style="background:linear-gradient(135deg,var(--navy),var(--navy2));color:white;border-radius:12px;padding:12px 16px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:13px;font-weight:700">📊 Report: ${periodLabel}</span>
+      <span style="font-size:11px;opacity:.7">${new Date().toLocaleString()}</span>
+    </div>
+
+    <!-- SUMMARY STATS -->
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px">
+      <div style="background:var(--navy-lt);border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:24px;font-weight:800;color:var(--navy2)">${bks.length}</div>
+        <div style="font-size:10px;color:var(--gray)">Total Bookings</div>
       </div>
-      <div style="background:var(--green-lt);border-radius:8px;padding:12px;text-align:center">
-        <div style="font-size:22px;font-weight:700;color:var(--green)">${active}</div>
-        <div style="font-size:11px;color:var(--gray)">Currently Checked In</div>
+      <div style="background:#E8F5E9;border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:24px;font-weight:800;color:#1B5E20">${active}</div>
+        <div style="font-size:10px;color:var(--gray)">Currently In</div>
       </div>
-      <div style="background:var(--amber-lt);border-radius:8px;padding:12px;text-align:center">
-        <div style="font-size:22px;font-weight:700;color:var(--amber)">${vis?.length||0}</div>
-        <div style="font-size:11px;color:var(--gray)">Total Visitors</div>
+      <div style="background:var(--gray-lt);border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:24px;font-weight:800;color:var(--gray)">${checkedOut}</div>
+        <div style="font-size:10px;color:var(--gray)">Checked Out</div>
       </div>
-      <div style="background:var(--purp-lt);border-radius:8px;padding:12px;text-align:center">
-        <div style="font-size:22px;font-weight:700;color:var(--purple)">${cln?.length||0}</div>
-        <div style="font-size:11px;color:var(--gray)">Cleaning Sessions</div>
+      <div style="background:var(--gold-lt);border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:24px;font-weight:800;color:var(--gold)">${totalNights}</div>
+        <div style="font-size:10px;color:var(--gray)">Total Nights</div>
       </div>
     </div>
-    ${topSport ? `<div style="font-size:12px;color:var(--gray);padding:8px 0">Most common sport: <strong style="color:var(--dark)">${topSport[0]}</strong> (${topSport[1]} guests)</div>` : ''}
-    ${Object.keys(sports).length ? `
-      <div style="font-size:12px;font-weight:600;margin:8px 0 6px">Sports Breakdown</div>
-      ${Object.entries(sports).map(([s,c]) => `
-        <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--gray-lt);font-size:12px">
-          <span>${s}</span><span style="font-weight:600;color:var(--blue)">${c}</span>
+
+    <!-- BOOKINGS TABLE -->
+    <div style="background:white;border-radius:12px;padding:14px;border:0.5px solid var(--border);margin-bottom:10px">
+      <div style="font-size:12px;font-weight:700;color:var(--navy2);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--gold)">📅 All Bookings (${bks.length})</div>
+      ${bks.length === 0 ? '<div style="text-align:center;padding:20px;color:var(--gray);font-size:12px">No bookings in this period</div>' : `
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:11px">
+          <thead>
+            <tr style="background:linear-gradient(90deg,var(--navy),var(--navy2))">
+              <th style="color:white;padding:7px 6px;text-align:left;font-weight:600">#</th>
+              <th style="color:white;padding:7px 6px;text-align:left;font-weight:600">Guest</th>
+              <th style="color:white;padding:7px 6px;text-align:left;font-weight:600">Room/Bed</th>
+              <th style="color:white;padding:7px 6px;text-align:left;font-weight:600">Sport</th>
+              <th style="color:white;padding:7px 6px;text-align:left;font-weight:600">Check-in</th>
+              <th style="color:white;padding:7px 6px;text-align:left;font-weight:600">Check-out</th>
+              <th style="color:white;padding:7px 6px;text-align:left;font-weight:600">Nights</th>
+              <th style="color:white;padding:7px 6px;text-align:left;font-weight:600">Meals</th>
+              <th style="color:white;padding:7px 6px;text-align:left;font-weight:600">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${bks.map((b,i) => {
+              var nights = '—';
+              if (b.checkin_date && b.checkout_date) {
+                var d = Math.round((new Date(b.checkout_date) - new Date(b.checkin_date)) / 86400000);
+                if (d > 0) nights = d + 'n';
+              }
+              return `<tr style="background:${i%2===0?'white':'var(--navy-lt)'}">
+                <td style="padding:6px">${i+1}</td>
+                <td style="padding:6px"><b>${b.guest_name}</b><br><span style="color:var(--gray);font-size:9px">${b.nationality||''} · ${b.role||''}</span></td>
+                <td style="padding:6px">Rm ${b.room_num}/${b.bed_id}</td>
+                <td style="padding:6px">${b.sport||'—'}</td>
+                <td style="padding:6px">${b.checkin_date||'—'}</td>
+                <td style="padding:6px">${b.checkout_date||'—'}</td>
+                <td style="padding:6px;font-weight:700;color:var(--navy2)">${nights}</td>
+                <td style="padding:6px">${b.meals ? `<span style="background:var(--gold-lt);color:var(--gold);font-size:9px;padding:2px 6px;border-radius:8px;font-weight:700">${b.meals}</span>` : '—'}</td>
+                <td style="padding:6px"><span style="font-size:9px;padding:2px 6px;border-radius:8px;font-weight:700;background:${b.status==='checked_in'?'var(--navy-lt)':'var(--gray-lt)'};color:${b.status==='checked_in'?'var(--navy2)':'var(--gray)'}">${b.status}</span></td>
+              </tr>`;
+            }).join('')}
+            <tr style="background:linear-gradient(90deg,var(--navy),var(--navy2))">
+              <td colspan="6" style="color:rgba(255,255,255,.8);padding:8px 6px;font-size:11px;font-weight:600">Total Nights</td>
+              <td style="color:var(--gold);font-size:14px;font-weight:800;padding:8px 6px">${totalNights}n</td>
+              <td colspan="2"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>`}
+    </div>
+
+    <!-- OCCUPANCY -->
+    <div style="background:white;border-radius:12px;padding:14px;border:0.5px solid var(--border);margin-bottom:10px">
+      <div style="font-size:12px;font-weight:700;color:var(--navy2);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--gold)">🏨 Occupancy Analysis</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="background:var(--navy-lt);border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:18px;font-weight:700;color:var(--navy2)">${menBks}</div>
+          <div style="font-size:10px;color:var(--gray)">Men Bookings</div>
         </div>
-      `).join('')}
-    ` : ''}
+        <div style="background:#F3E5F5;border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:18px;font-weight:700;color:var(--purple2)">${womenBks}</div>
+          <div style="font-size:10px;color:var(--gray)">Women Bookings</div>
+        </div>
+      </div>
+      ${Object.keys(meals).some(k => meals[k] > 0) ? `
+      <div style="margin-top:10px">
+        <div style="font-size:11px;font-weight:600;color:var(--dark);margin-bottom:6px">Meals Breakdown</div>
+        ${Object.entries(meals).filter(([k,v]) => v > 0).map(([k,v]) => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--gray-lt);font-size:11px">
+            <span>${k === 'none' ? 'No Meals' : k}</span>
+            <span style="font-weight:700;color:var(--navy2)">${v} guests</span>
+          </div>`).join('')}
+      </div>` : ''}
+    </div>
+
+    <!-- SPORTS & NATIONALITIES -->
+    ${Object.keys(sports).length ? `
+    <div style="background:white;border-radius:12px;padding:14px;border:0.5px solid var(--border);margin-bottom:10px">
+      <div style="font-size:12px;font-weight:700;color:var(--navy2);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--gold)">🏆 Sports Breakdown</div>
+      ${Object.entries(sports).sort((a,b)=>b[1]-a[1]).map(([s,c]) => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--gray-lt);font-size:11px">
+          <span>${s}</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="height:6px;background:var(--navy2);border-radius:3px;width:${Math.round(c/bks.length*100)}px;max-width:80px"></div>
+            <span style="font-weight:700;color:var(--navy2)">${c}</span>
+          </div>
+        </div>`).join('')}
+    </div>` : ''}
+
+    ${Object.keys(nats).length ? `
+    <div style="background:white;border-radius:12px;padding:14px;border:0.5px solid var(--border);margin-bottom:10px">
+      <div style="font-size:12px;font-weight:700;color:var(--navy2);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--gold)">🌍 Nationalities</div>
+      ${Object.entries(nats).sort((a,b)=>b[1]-a[1]).map(([n,c]) => `
+        <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--gray-lt);font-size:11px">
+          <span>${n}</span><span style="font-weight:700;color:var(--navy2)">${c}</span>
+        </div>`).join('')}
+    </div>` : ''}
+
+    <!-- VISITORS -->
+    <div style="background:white;border-radius:12px;padding:14px;border:0.5px solid var(--border);margin-bottom:10px">
+      <div style="font-size:12px;font-weight:700;color:var(--navy2);margin-bottom:8px;padding-bottom:6px;border-bottom:2px solid var(--gold)">🛡 Security — Visitors (${vis.length})</div>
+      ${vis.length === 0 ? '<div style="text-align:center;padding:12px;color:var(--gray);font-size:12px">No visitors in this period</div>' :
+        vis.slice(0,10).map((v,i) => `
+          <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--gray-lt);font-size:11px">
+            <span><b>${v.visitor_name}</b> → Room ${v.room_visited}</span>
+            <span style="color:var(--gray)">${v.entry_time ? new Date(v.entry_time).toLocaleDateString() : '—'}</span>
+          </div>`).join('')
+      }
+    </div>
+
+    <!-- CLEANING -->
+    <div style="background:white;border-radius:12px;padding:14px;border:0.5px solid var(--border)">
+      <div style="font-size:12px;font-weight:700;color:var(--navy2);margin-bottom:8px;padding-bottom:6px;border-bottom:2px solid var(--gold)">✨ Cleaning Sessions (${cln.length})</div>
+      ${cln.length === 0 ? '<div style="text-align:center;padding:12px;color:var(--gray);font-size:12px">No cleaning sessions in this period</div>' :
+        cln.map((c,i) => `
+          <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--gray-lt);font-size:11px">
+            <span>Room ${c.room_num} — <span style="color:var(--gray)">${c.staff_name}</span></span>
+            <span style="color:var(--navy2);font-weight:600">${c.items_completed}/${c.total_items} items</span>
+          </div>`).join('')
+      }
+    </div>
   `;
+}
+
+async function exportPDF() {
+  var range = getDateRange();
+  if (!range) return;
+  if (reportData.bookings.length === 0) {
+    alert('Please generate the report first');
+    return;
+  }
+  // Build print window
+  var w = window.open('', '_blank');
+  var periodLabel = reportPeriod === 'daily' ? 'Daily Report — ' + new Date().toLocaleDateString() :
+    reportPeriod === 'weekly' ? 'Weekly Report' :
+    reportPeriod === 'monthly' ? 'Monthly Report — ' + new Date().toLocaleString('default',{month:'long',year:'numeric'}) :
+    'Custom Period Report';
+  var bks = reportData.bookings;
+  var totalNights = 0;
+  bks.forEach(b => {
+    if (b.checkin_date && b.checkout_date) {
+      var d = Math.round((new Date(b.checkout_date) - new Date(b.checkin_date)) / 86400000);
+      if (d > 0) totalNights += d;
+    }
+  });
+  w.document.write(`
+    <!DOCTYPE html><html><head><title>SSC Report</title>
+    <style>
+      body{font-family:Arial,sans-serif;padding:24px;color:#1a1a1a;font-size:12px}
+      h1{color:#1B2D5B;font-size:18px;border-bottom:3px solid #D4A017;padding-bottom:8px;margin-bottom:16px}
+      h2{color:#1B2D5B;font-size:13px;margin:16px 0 8px}
+      table{width:100%;border-collapse:collapse;margin-bottom:16px}
+      th{background:#1B2D5B;color:white;padding:7px 8px;text-align:left;font-size:11px}
+      td{padding:6px 8px;border-bottom:1px solid #EEF2FF;font-size:11px}
+      tr:nth-child(even) td{background:#F8F9FF}
+      .total-row td{background:#1B2D5B;color:white;font-weight:700}
+      .total-row .gold{color:#D4A017}
+      .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+      .stat{background:#EEF2FF;border-radius:8px;padding:10px;text-align:center}
+      .stat-num{font-size:22px;font-weight:700;color:#1B2D5B}
+      .stat-lbl{font-size:10px;color:#888}
+      @media print{body{padding:12px}}
+    </style></head><body>
+    <h1>Smash Sporting Club — Accommodation<br><span style="font-size:13px;font-weight:400;color:#888">${periodLabel}</span></h1>
+    <div class="stats">
+      <div class="stat"><div class="stat-num">${bks.length}</div><div class="stat-lbl">Total Bookings</div></div>
+      <div class="stat"><div class="stat-num">${bks.filter(b=>b.status==='checked_in').length}</div><div class="stat-lbl">Currently In</div></div>
+      <div class="stat"><div class="stat-num">${totalNights}</div><div class="stat-lbl">Total Nights</div></div>
+      <div class="stat"><div class="stat-num">${bks.filter(b=>b.gender==='male').length}/${bks.filter(b=>b.gender==='female').length}</div><div class="stat-lbl">Men/Women</div></div>
+    </div>
+    <h2>Bookings</h2>
+    <table>
+      <thead><tr><th>#</th><th>Guest</th><th>Nationality</th><th>Room/Bed</th><th>Sport</th><th>Role</th><th>Check-in</th><th>Check-out</th><th>Nights</th><th>Meals</th><th>Status</th></tr></thead>
+      <tbody>
+        ${bks.map((b,i) => {
+          var nights = '—';
+          if (b.checkin_date && b.checkout_date) {
+            var d = Math.round((new Date(b.checkout_date) - new Date(b.checkin_date)) / 86400000);
+            if (d > 0) nights = d + 'n';
+          }
+          return `<tr><td>${i+1}</td><td>${b.guest_name}</td><td>${b.nationality||'—'}</td><td>Rm ${b.room_num}/${b.bed_id}</td><td>${b.sport||'—'}</td><td>${b.role||'—'}</td><td>${b.checkin_date||'—'}</td><td>${b.checkout_date||'—'}</td><td>${nights}</td><td>${b.meals||'—'}</td><td>${b.status}</td></tr>`;
+        }).join('')}
+        <tr class="total-row"><td colspan="8">Total Nights</td><td class="gold">${totalNights}n</td><td colspan="2"></td></tr>
+      </tbody>
+    </table>
+    <p style="font-size:10px;color:#888;margin-top:20px">Generated: ${new Date().toLocaleString()} by ${currentUser.name}</p>
+    <script>window.onload=function(){window.print()}<\/script>
+    </body></html>`);
+  w.document.close();
+}
+
+async function exportExcel() {
+  if (reportData.bookings.length === 0) {
+    alert('Please generate the report first');
+    return;
+  }
+  var bks = reportData.bookings;
+  var rows = [['#','Guest Name','Nationality','Gender','Room','Bed','Sport','Role','Tournament','Team','Check-in','Check-out','Nights','Meals','Status','Registered By']];
+  bks.forEach((b,i) => {
+    var nights = '';
+    if (b.checkin_date && b.checkout_date) {
+      var d = Math.round((new Date(b.checkout_date) - new Date(b.checkin_date)) / 86400000);
+      if (d > 0) nights = d;
+    }
+    rows.push([i+1, b.guest_name, b.nationality||'', b.gender||'', b.room_num||'', b.bed_id||'', b.sport||'', b.role||'', b.tournament||'', b.team||'', b.checkin_date||'', b.checkout_date||'', nights, b.meals||'', b.status, b.registered_by||'']);
+  });
+  // Convert to CSV
+  var csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g,'""') + '"').join(',')).join('\n');
+  var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'SSC_Report_' + new Date().toISOString().split('T')[0] + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ══════════════════════════════════════════
