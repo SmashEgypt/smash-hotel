@@ -786,14 +786,15 @@ async function loadBookings() {
   const { data } = await db.from('bookings').select('*').order('created_at',{ascending:false});
   const tbody = document.getElementById('bookings-body');
   if (!data || !data.length) { tbody.innerHTML = '<tr><td colspan="9" class="loading">No bookings yet</td></tr>'; return; }
-  tbody.innerHTML = data.map(b => {
+  let totalNights = 0;
+  const rows = data.map(b => {
     const ci = b.checkin_date || '—';
     const co = b.checkout_date || '—';
     let nights = '—';
     if (b.checkin_date && b.checkout_date) {
       const d1 = new Date(b.checkin_date), d2 = new Date(b.checkout_date);
       const diff = Math.round((d2-d1)/(1000*60*60*24));
-      if (diff > 0) nights = diff + ' nights';
+      if (diff > 0) { nights = diff + ' nights'; totalNights += diff; }
     }
     return `<tr>
       <td><strong>${b.guest_name}</strong><br><span style="color:var(--gray);font-size:10px">${b.nationality||''}</span></td>
@@ -807,9 +808,16 @@ async function loadBookings() {
       <td style="display:flex;gap:4px;flex-wrap:wrap">
         <button class="btn btn-ghost" style="padding:4px 8px;font-size:10px" onclick="openEditModal('${b.id}')">✏️ Edit</button>
         ${b.status==='checked_in'?`<button class="btn btn-danger" style="padding:4px 8px;font-size:10px" onclick="checkOut('${b.id}')">Check Out</button>`:''}
+        <button class="btn" style="padding:4px 8px;font-size:10px;background:var(--red-lt);color:var(--red);border:1px solid var(--red)" onclick="deleteBooking('${b.id}','${b.guest_name}')">🗑 Delete</button>
       </td>
     </tr>`;
   }).join('');
+  const totalRow = `<tr style="background:var(--blue-lt)">
+    <td colspan="5" style="text-align:right;padding:10px 14px;color:var(--blue);font-weight:600;font-size:13px">إجمالي عدد الليالي — Total Nights</td>
+    <td style="color:var(--blue);font-size:15px;font-weight:700;padding:10px 14px">${totalNights} nights</td>
+    <td colspan="3"></td>
+  </tr>`;
+  tbody.innerHTML = rows + totalRow;
 }
 
 function openBookingModal() {
@@ -1010,6 +1018,14 @@ async function checkOut(id) {
   if (!confirm('Confirm check-out for this guest?')) return;
   await db.from('bookings').update({ status:'checked_out', checked_out_by: currentUser.name, checkout_actual: new Date().toISOString() }).eq('id',id);
   showAlert('bookings-alert','Guest checked out successfully','success');
+  loadBookings(); loadDashboard();
+}
+
+async function deleteBooking(id, name) {
+  if (!confirm('حذف حجز ' + name + '؟\nDelete booking for ' + name + '?\n\nThis cannot be undone!')) return;
+  const { error } = await db.from('bookings').delete().eq('id', id);
+  if (error) { showAlert('bookings-alert', 'Error: ' + error.message, 'error'); return; }
+  showAlert('bookings-alert', 'Booking deleted — ' + name, 'success');
   loadBookings(); loadDashboard();
 }
 
