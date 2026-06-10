@@ -1115,6 +1115,8 @@ function row(label, value, bold) {
     <span style="${bold?'font-weight:700;':''}color:var(--dark)">${value || '—'}</span>
   </div>`;
 }
+
+async function openEditModal(id) {
   const { data: b } = await db.from('bookings').select('*').eq('id', id).single();
   if (!b) return;
   document.getElementById('edit-b-id').value = b.id;
