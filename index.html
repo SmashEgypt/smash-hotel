@@ -386,9 +386,19 @@
 
     <!-- REPORTS -->
     <div class="page" id="page-reports">
+      <!-- Buttons -->
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <button onclick="printOccupancyReport()" style="padding:9px 16px;background:linear-gradient(135deg,#0D1B3E,#1B2D5B);color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(13,27,62,.3)">🖨 تقرير الإشغال — Occupancy Report PDF</button>
+        <button onclick="exportOccupancyCSV()" style="padding:9px 16px;background:linear-gradient(135deg,#1B5E20,#2E7D32);color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(27,94,32,.3)">📊 Export Excel CSV</button>
+      </div>
+
+      <!-- Live Occupancy Table -->
       <div class="card">
-        <div class="card-title"><div class="dot" style="background:var(--amber)"></div>Monthly Summary</div>
-        <div id="reports-content"><div class="loading">Loading...</div></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div style="font-size:13px;font-weight:700;color:#1B2D5B">🏨 الغرف المشغولة حالياً — Currently Occupied Rooms</div>
+          <div id="occ-report-count" style="font-size:11px;color:#888"></div>
+        </div>
+        <div id="occ-report-content"><div class="loading">Loading...</div></div>
       </div>
     </div>
   </div>
@@ -1185,44 +1195,217 @@ async function updateWifi() {
 // REPORTS
 // ══════════════════════════════════════════
 async function loadReports() {
-  const { data: bks } = await db.from('bookings').select('*');
-  const { data: vis } = await db.from('visitor_logs').select('*');
-  const { data: cln } = await db.from('cleaning_logs').select('*');
-  const total = bks?.length||0;
-  const active = bks?.filter(b=>b.status==='checked_in').length||0;
-  const sports = {};
-  bks?.forEach(b => { if(b.sport) sports[b.sport]=(sports[b.sport]||0)+1; });
-  const topSport = Object.entries(sports).sort((a,b)=>b[1]-a[1])[0];
+  const { data: bks } = await db.from('bookings').select('*').eq('status','checked_in').order('room_num');
+  const el = document.getElementById('occ-report-content');
+  const countEl = document.getElementById('occ-report-count');
+  if (!bks || !bks.length) {
+    el.innerHTML = '<div class="loading">لا يوجد نزلاء حالياً — No guests currently</div>';
+    countEl.textContent = '0 نزيل';
+    return;
+  }
+  countEl.textContent = bks.length + ' نزيل مقيم';
 
-  document.getElementById('reports-content').innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
-      <div style="background:var(--blue-lt);border-radius:8px;padding:12px;text-align:center">
-        <div style="font-size:22px;font-weight:700;color:var(--blue)">${total}</div>
-        <div style="font-size:11px;color:var(--gray)">Total Bookings</div>
-      </div>
-      <div style="background:var(--green-lt);border-radius:8px;padding:12px;text-align:center">
-        <div style="font-size:22px;font-weight:700;color:var(--green)">${active}</div>
-        <div style="font-size:11px;color:var(--gray)">Currently Checked In</div>
-      </div>
-      <div style="background:var(--amber-lt);border-radius:8px;padding:12px;text-align:center">
-        <div style="font-size:22px;font-weight:700;color:var(--amber)">${vis?.length||0}</div>
-        <div style="font-size:11px;color:var(--gray)">Total Visitors</div>
-      </div>
-      <div style="background:var(--purp-lt);border-radius:8px;padding:12px;text-align:center">
-        <div style="font-size:22px;font-weight:700;color:var(--purple)">${cln?.length||0}</div>
-        <div style="font-size:11px;color:var(--gray)">Cleaning Sessions</div>
-      </div>
-    </div>
-    ${topSport ? `<div style="font-size:12px;color:var(--gray);padding:8px 0">Most common sport: <strong style="color:var(--dark)">${topSport[0]}</strong> (${topSport[1]} guests)</div>` : ''}
-    ${Object.keys(sports).length ? `
-      <div style="font-size:12px;font-weight:600;margin:8px 0 6px">Sports Breakdown</div>
-      ${Object.entries(sports).map(([s,c]) => `
-        <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--gray-lt);font-size:12px">
-          <span>${s}</span><span style="font-weight:600;color:var(--blue)">${c}</span>
+  // Group by room
+  const rooms = {};
+  bks.forEach(b => {
+    if (!rooms[b.room_num]) rooms[b.room_num] = [];
+    rooms[b.room_num].push(b);
+  });
+
+  el.innerHTML = Object.entries(rooms).sort((a,b) => a[0].localeCompare(b[0], undefined, {numeric:true})).map(([roomNum, guests]) => {
+    const isWomen = roomNum.startsWith('2');
+    const floorColor = isWomen ? '#7B3F9E' : '#1B2D5B';
+    const floorAr = isWomen ? 'الدور الثاني — سيدات' : 'الدور الأول — رجال';
+    return `
+      <div style="margin-bottom:14px;border-radius:10px;overflow:hidden;border:1px solid #EEF2FF">
+        <div style="background:${floorColor};padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
+          <span style="color:white;font-size:12px;font-weight:700">Room ${roomNum} — غرفة ${roomNum}</span>
+          <span style="color:rgba(255,255,255,.7);font-size:10px">${floorAr}</span>
         </div>
-      `).join('')}
-    ` : ''}
-  `;
+        <table style="width:100%;border-collapse:collapse;font-size:11px">
+          <thead>
+            <tr style="background:#F8F9FF">
+              <th style="padding:7px 10px;text-align:left;color:#1B2D5B;font-weight:700;border-bottom:1px solid #EEF2FF">السرير / Bed</th>
+              <th style="padding:7px 10px;text-align:left;color:#1B2D5B;font-weight:700;border-bottom:1px solid #EEF2FF">الاسم / Name</th>
+              <th style="padding:7px 10px;text-align:left;color:#1B2D5B;font-weight:700;border-bottom:1px solid #EEF2FF">الجنسية / Nationality</th>
+              <th style="padding:7px 10px;text-align:left;color:#1B2D5B;font-weight:700;border-bottom:1px solid #EEF2FF">من / From</th>
+              <th style="padding:7px 10px;text-align:left;color:#1B2D5B;font-weight:700;border-bottom:1px solid #EEF2FF">إلى / To</th>
+              <th style="padding:7px 10px;text-align:left;color:#1B2D5B;font-weight:700;border-bottom:1px solid #EEF2FF">صلة / Relation</th>
+              <th style="padding:7px 10px;text-align:left;color:#1B2D5B;font-weight:700;border-bottom:1px solid #EEF2FF">البطولة / Tournament</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${guests.map((g,i) => `
+              <tr style="background:${i%2===0?'white':'#F8F9FF'}">
+                <td style="padding:7px 10px;border-bottom:1px solid #EEF2FF;font-weight:700;color:#1B2D5B">${g.bed_id}</td>
+                <td style="padding:7px 10px;border-bottom:1px solid #EEF2FF;font-weight:600">${g.guest_name}</td>
+                <td style="padding:7px 10px;border-bottom:1px solid #EEF2FF">${g.nationality || '—'}</td>
+                <td style="padding:7px 10px;border-bottom:1px solid #EEF2FF">${g.checkin_date || '—'}</td>
+                <td style="padding:7px 10px;border-bottom:1px solid #EEF2FF">${g.checkout_date || '—'}</td>
+                <td style="padding:7px 10px;border-bottom:1px solid #EEF2FF">${g.role || '—'}</td>
+                <td style="padding:7px 10px;border-bottom:1px solid #EEF2FF">${g.tournament || '—'}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }).join('');
+}
+
+async function printOccupancyReport() {
+  const { data: bks } = await db.from('bookings').select('*').eq('status','checked_in').order('room_num');
+  if (!bks || !bks.length) { alert('لا يوجد نزلاء حالياً'); return; }
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('ar-EG', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+  const dateEn = now.toLocaleDateString('en-GB', { day:'2-digit', month:'long', year:'numeric' });
+  const timeStr = now.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+
+  // Group by room
+  const rooms = {};
+  bks.forEach(b => {
+    if (!rooms[b.room_num]) rooms[b.room_num] = [];
+    rooms[b.room_num].push(b);
+  });
+
+  const menRooms = Object.entries(rooms).filter(([n]) => n.startsWith('1')).sort((a,b) => a[0].localeCompare(b[0],undefined,{numeric:true}));
+  const womenRooms = Object.entries(rooms).filter(([n]) => n.startsWith('2')).sort((a,b) => a[0].localeCompare(b[0],undefined,{numeric:true}));
+
+  function roomTable(roomNum, guests, color) {
+    return `
+      <div style="margin-bottom:16px;border-radius:8px;overflow:hidden;border:1px solid #e0e0e0;page-break-inside:avoid">
+        <div style="background:${color};padding:8px 14px;display:flex;justify-content:space-between">
+          <span style="color:white;font-size:12px;font-weight:700">Room ${roomNum} — غرفة ${roomNum}</span>
+          <span style="color:rgba(255,255,255,.8);font-size:11px">${guests.length} نزيل</span>
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:11px">
+          <thead>
+            <tr style="background:#F5F5F5">
+              <th style="padding:6px 10px;text-align:left;border-bottom:1px solid #e0e0e0;color:#1B2D5B">السرير<br>Bed</th>
+              <th style="padding:6px 10px;text-align:left;border-bottom:1px solid #e0e0e0;color:#1B2D5B">الاسم<br>Name</th>
+              <th style="padding:6px 10px;text-align:left;border-bottom:1px solid #e0e0e0;color:#1B2D5B">الجنسية<br>Nationality</th>
+              <th style="padding:6px 10px;text-align:left;border-bottom:1px solid #e0e0e0;color:#1B2D5B">من<br>From</th>
+              <th style="padding:6px 10px;text-align:left;border-bottom:1px solid #e0e0e0;color:#1B2D5B">إلى<br>To</th>
+              <th style="padding:6px 10px;text-align:left;border-bottom:1px solid #e0e0e0;color:#1B2D5B">صلة القرابة<br>Relation</th>
+              <th style="padding:6px 10px;text-align:left;border-bottom:1px solid #e0e0e0;color:#1B2D5B">البطولة<br>Tournament</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${guests.map((g,i) => `
+              <tr style="background:${i%2===0?'white':'#FAFAFA'}">
+                <td style="padding:6px 10px;border-bottom:1px solid #F0F0F0;font-weight:700;color:#1B2D5B">${g.bed_id}</td>
+                <td style="padding:6px 10px;border-bottom:1px solid #F0F0F0;font-weight:600">${g.guest_name}</td>
+                <td style="padding:6px 10px;border-bottom:1px solid #F0F0F0">${g.nationality || '—'}</td>
+                <td style="padding:6px 10px;border-bottom:1px solid #F0F0F0">${g.checkin_date || '—'}</td>
+                <td style="padding:6px 10px;border-bottom:1px solid #F0F0F0">${g.checkout_date || '—'}</td>
+                <td style="padding:6px 10px;border-bottom:1px solid #F0F0F0">${g.role || '—'}</td>
+                <td style="padding:6px 10px;border-bottom:1px solid #F0F0F0">${g.tournament || '—'}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  const w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="UTF-8">
+<title>تقرير الإشغال — Occupancy Report</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Cairo',Arial,sans-serif;padding:20px;color:#1a1a1a;background:white;font-size:12px}
+.header{background:linear-gradient(135deg,#0D1B3E,#1B2D5B);padding:20px 24px;border-radius:10px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center}
+.hotel-name{color:white;font-size:20px;font-weight:900;letter-spacing:1px}
+.hotel-sub{color:#D4A017;font-size:10px;letter-spacing:2px;margin-top:3px}
+.report-info{text-align:left}
+.report-title{color:#D4A017;font-size:14px;font-weight:700}
+.report-date{color:rgba(255,255,255,.7);font-size:10px;margin-top:3px}
+.gold-bar{height:3px;background:linear-gradient(90deg,#D4A017,#F0C030,#D4A017);margin-bottom:16px;border-radius:2px}
+.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+.sum-box{border:1px solid #EEF2FF;border-radius:8px;padding:10px;text-align:center}
+.sum-num{font-size:22px;font-weight:900;color:#1B2D5B}
+.sum-lbl{font-size:9px;color:#888;margin-top:2px}
+.floor-title{font-size:13px;font-weight:700;color:#1B2D5B;padding:8px 0;margin-bottom:8px;border-bottom:2px solid #D4A017;display:flex;justify-content:space-between}
+.floor-ar{font-size:13px}
+.floor-en{font-size:11px;color:#888;font-weight:400}
+.footer{margin-top:20px;padding-top:12px;border-top:1px solid #e0e0e0;display:flex;justify-content:space-between;font-size:10px;color:#888}
+@media print{body{padding:10px}@page{size:A4;margin:10mm}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="hotel-name">SMASH</div>
+    <div class="hotel-sub">SPORTING CLUB · ACCOMMODATION</div>
+  </div>
+  <div class="report-info">
+    <div class="report-title">تقرير الإشغال — Occupancy Report</div>
+    <div class="report-date">${dateStr}</div>
+    <div class="report-date">${dateEn} — ${timeStr}</div>
+  </div>
+</div>
+<div class="gold-bar"></div>
+
+<div class="summary">
+  <div class="sum-box"><div class="sum-num" style="color:#1B2D5B">${bks.length}</div><div class="sum-lbl">إجمالي النزلاء<br>Total Guests</div></div>
+  <div class="sum-box"><div class="sum-num" style="color:#1B5E20">${bks.filter(b=>b.gender==='male').length}</div><div class="sum-lbl">رجال<br>Men</div></div>
+  <div class="sum-box"><div class="sum-num" style="color:#7B3F9E">${bks.filter(b=>b.gender==='female').length}</div><div class="sum-lbl">سيدات<br>Women</div></div>
+  <div class="sum-box"><div class="sum-num" style="color:#D4A017">${Object.keys(rooms).length}</div><div class="sum-lbl">غرف مشغولة<br>Rooms Occupied</div></div>
+</div>
+
+${menRooms.length ? `
+<div class="floor-title">
+  <span class="floor-ar">الدور الأول — رجال</span>
+  <span class="floor-en">Floor 1 — Men (Rooms 101-107)</span>
+</div>
+${menRooms.map(([num, guests]) => roomTable(num, guests, '#1B2D5B')).join('')}
+` : ''}
+
+${womenRooms.length ? `
+<div class="floor-title" style="margin-top:10px">
+  <span class="floor-ar">الدور الثاني — سيدات</span>
+  <span class="floor-en">Floor 2 — Women (Rooms 201-207)</span>
+</div>
+${womenRooms.map(([num, guests]) => roomTable(num, guests, '#7B3F9E')).join('')}
+` : ''}
+
+<div class="footer">
+  <span>أعد بواسطة: ${currentUser.name} — Generated by: ${currentUser.name}</span>
+  <span>Smash Sporting Club — Accommodation Management System</span>
+</div>
+
+<div class="no-print" style="text-align:center;margin-top:20px">
+  <button onclick="window.print()" style="background:#1B2D5B;color:white;border:none;padding:10px 24px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;margin-right:8px">🖨 Print / طباعة</button>
+  <button onclick="window.close()" style="background:#f5f5f5;color:#555;border:1px solid #ddd;padding:10px 20px;border-radius:8px;font-size:13px;cursor:pointer">✕ Close</button>
+</div>
+
+<script>window.onload=function(){window.print()}<\/script>
+</body>
+</html>`);
+  w.document.close();
+}
+
+async function exportOccupancyCSV() {
+  const { data: bks } = await db.from('bookings').select('*').eq('status','checked_in').order('room_num');
+  if (!bks || !bks.length) { alert('لا يوجد نزلاء حالياً'); return; }
+
+  const rows = [
+    ['الغرفة/Room', 'السرير/Bed', 'الاسم/Name', 'الجنسية/Nationality', 'من/From', 'إلى/To', 'صلة القرابة/Relation', 'البطولة/Tournament', 'الرياضة/Sport']
+  ];
+  bks.forEach(b => {
+    rows.push([b.room_num, b.bed_id, b.guest_name, b.nationality||'', b.checkin_date||'', b.checkout_date||'', b.role||'', b.tournament||'', b.sport||'']);
+  });
+
+  const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g,'""') + '"').join(',')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'SSC_Occupancy_' + new Date().toISOString().split('T')[0] + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ══════════════════════════════════════════
