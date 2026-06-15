@@ -386,20 +386,40 @@
 
     <!-- REPORTS -->
     <div class="page" id="page-reports">
-      <!-- Buttons -->
-      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-        <button onclick="printOccupancyReport()" style="padding:9px 16px;background:linear-gradient(135deg,#0D1B3E,#1B2D5B);color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(13,27,62,.3)">🖨 تقرير الإشغال — Occupancy Report PDF</button>
-        <button onclick="exportOccupancyCSV()" style="padding:9px 16px;background:linear-gradient(135deg,#1B5E20,#2E7D32);color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(27,94,32,.3)">📊 Export Excel CSV</button>
+
+      <!-- Report Tabs -->
+      <div style="display:flex;gap:4px;background:#EEF2FF;border-radius:12px;padding:4px;margin-bottom:12px;overflow-x:auto;scrollbar-width:none">
+        <button class="rep-tab active" onclick="switchReport('occupancy',this)" style="flex:1;padding:8px 10px;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;background:#1B2D5B;color:white;white-space:nowrap">🏨 الإشغال</button>
+        <button class="rep-tab" onclick="switchReport('guests',this)" style="flex:1;padding:8px 10px;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;background:transparent;color:#888;white-space:nowrap">👥 النزلاء</button>
+        <button class="rep-tab" onclick="switchReport('financial',this)" style="flex:1;padding:8px 10px;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;background:transparent;color:#888;white-space:nowrap">💰 المالي</button>
+        <button class="rep-tab" onclick="switchReport('sports',this)" style="flex:1;padding:8px 10px;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;background:transparent;color:#888;white-space:nowrap">🏆 الرياضي</button>
       </div>
 
-      <!-- Live Occupancy Table -->
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-          <div style="font-size:13px;font-weight:700;color:#1B2D5B">🏨 الغرف المشغولة حالياً — Currently Occupied Rooms</div>
-          <div id="occ-report-count" style="font-size:11px;color:#888"></div>
+      <!-- Date Filter -->
+      <div class="card" style="margin-bottom:10px;padding:10px 14px">
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+          <span style="font-size:11px;font-weight:700;color:#1B2D5B">الفترة:</span>
+          <div style="display:flex;gap:4px;background:#F5F5F5;border-radius:8px;padding:3px">
+            <button class="per-btn active" onclick="setPeriod('today',this)" style="padding:4px 10px;font-size:10px;font-weight:700;border:none;border-radius:6px;cursor:pointer;background:#1B2D5B;color:white">اليوم</button>
+            <button class="per-btn" onclick="setPeriod('week',this)" style="padding:4px 10px;font-size:10px;font-weight:700;border:none;border-radius:6px;cursor:pointer;background:transparent;color:#888">أسبوع</button>
+            <button class="per-btn" onclick="setPeriod('month',this)" style="padding:4px 10px;font-size:10px;font-weight:700;border:none;border-radius:6px;cursor:pointer;background:transparent;color:#888">شهر</button>
+            <button class="per-btn" onclick="setPeriod('all',this)" style="padding:4px 10px;font-size:10px;font-weight:700;border:none;border-radius:6px;cursor:pointer;background:transparent;color:#888">الكل</button>
+            <button class="per-btn" onclick="setPeriod('custom',this)" style="padding:4px 10px;font-size:10px;font-weight:700;border:none;border-radius:6px;cursor:pointer;background:transparent;color:#888">مخصص</button>
+          </div>
+          <div id="custom-date-range" style="display:none;gap:6px;align-items:center;flex-wrap:wrap">
+            <input type="date" id="rep-from" style="padding:4px 8px;border:1px solid #E0E0E0;border-radius:6px;font-size:11px">
+            <span style="font-size:11px;color:#888">إلى</span>
+            <input type="date" id="rep-to" style="padding:4px 8px;border:1px solid #E0E0E0;border-radius:6px;font-size:11px">
+          </div>
+          <button onclick="generateAllReports()" style="padding:6px 14px;background:linear-gradient(135deg,#D4A017,#F0C030);color:#0D1B3E;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">🔍 عرض</button>
+          <button onclick="printCurrentReport()" style="padding:6px 14px;background:linear-gradient(135deg,#0D1B3E,#1B2D5B);color:white;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">🖨 PDF</button>
+          <button onclick="exportCurrentCSV()" style="padding:6px 14px;background:linear-gradient(135deg,#1B5E20,#2E7D32);color:white;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">📊 Excel</button>
         </div>
-        <div id="occ-report-content"><div class="loading">Loading...</div></div>
       </div>
+
+      <!-- Report Content -->
+      <div id="report-content"><div class="loading">اختر نوع التقرير واضغط عرض</div></div>
+
     </div>
   </div>
 </div>
@@ -1194,16 +1214,461 @@ async function updateWifi() {
 // ══════════════════════════════════════════
 // REPORTS
 // ══════════════════════════════════════════
-async function loadReports() {
-  const { data: bks } = await db.from('bookings').select('*').eq('status','checked_in').order('room_num');
-  const el = document.getElementById('occ-report-content');
-  const countEl = document.getElementById('occ-report-count');
-  if (!bks || !bks.length) {
-    el.innerHTML = '<div class="loading">لا يوجد نزلاء حالياً — No guests currently</div>';
-    countEl.textContent = '0 نزيل';
-    return;
+// ══════════════════════════════════════════
+// REPORTS SYSTEM
+// ══════════════════════════════════════════
+var currentReport = 'occupancy';
+var currentPeriod = 'today';
+var allReportData = [];
+
+function switchReport(type, btn) {
+  currentReport = type;
+  document.querySelectorAll('.rep-tab').forEach(b => {
+    b.style.background = 'transparent';
+    b.style.color = '#888';
+  });
+  btn.style.background = '#1B2D5B';
+  btn.style.color = 'white';
+  generateAllReports();
+}
+
+function setPeriod(period, btn) {
+  currentPeriod = period;
+  document.querySelectorAll('.per-btn').forEach(b => {
+    b.style.background = 'transparent';
+    b.style.color = '#888';
+  });
+  btn.style.background = '#1B2D5B';
+  btn.style.color = 'white';
+  var cd = document.getElementById('custom-date-range');
+  cd.style.display = period === 'custom' ? 'flex' : 'none';
+}
+
+function getDateFilter() {
+  var now = new Date();
+  var from, to;
+  to = new Date(now); to.setHours(23,59,59,999);
+  if (currentPeriod === 'today') {
+    from = new Date(now); from.setHours(0,0,0,0);
+  } else if (currentPeriod === 'week') {
+    from = new Date(now); from.setDate(now.getDate()-7); from.setHours(0,0,0,0);
+  } else if (currentPeriod === 'month') {
+    from = new Date(now.getFullYear(), now.getMonth(), 1);
+  } else if (currentPeriod === 'custom') {
+    var f = document.getElementById('rep-from').value;
+    var t = document.getElementById('rep-to').value;
+    if (!f || !t) return null;
+    from = new Date(f); to = new Date(t); to.setHours(23,59,59,999);
+  } else {
+    from = new Date('2020-01-01');
   }
-  countEl.textContent = bks.length + ' نزيل مقيم';
+  return { from, to };
+}
+
+function loadReports() { generateAllReports(); }
+
+async function generateAllReports() {
+  document.getElementById('report-content').innerHTML = '<div class="loading">جاري تحميل البيانات...</div>';
+  var range = getDateFilter();
+  var query = db.from('bookings').select('*').order('room_num');
+  if (currentReport === 'occupancy') {
+    query = db.from('bookings').select('*').eq('status','checked_in').order('room_num');
+  } else if (range) {
+    query = query.gte('created_at', range.from.toISOString()).lte('created_at', range.to.toISOString());
+  }
+  var { data: bks } = await query;
+  allReportData = bks || [];
+
+  if (currentReport === 'occupancy') renderOccupancyReport(bks||[]);
+  else if (currentReport === 'guests') renderGuestsReport(bks||[]);
+  else if (currentReport === 'financial') renderFinancialReport(bks||[]);
+  else if (currentReport === 'sports') renderSportsReport(bks||[]);
+}
+
+// ── HELPER ──
+function reportCard(title, content) {
+  return `<div class="card" style="margin-bottom:10px">
+    <div style="font-size:12px;font-weight:700;color:#1B2D5B;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #D4A017">${title}</div>
+    ${content}
+  </div>`;
+}
+function statBox(num, lbl, color) {
+  return `<div style="background:#F8F9FF;border-radius:10px;padding:12px;text-align:center;border:1px solid #EEF2FF">
+    <div style="font-size:22px;font-weight:800;color:${color}">${num}</div>
+    <div style="font-size:10px;color:#888;margin-top:2px">${lbl}</div>
+  </div>`;
+}
+function barChart(items, color) {
+  var max = Math.max(...items.map(i=>i.val), 1);
+  return items.map(([lbl,val]) => `
+    <div style="margin-bottom:6px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px">
+        <span>${lbl}</span><span style="font-weight:700;color:${color}">${val}</span>
+      </div>
+      <div style="background:#EEF2FF;border-radius:4px;height:5px">
+        <div style="background:${color};height:5px;border-radius:4px;width:${Math.round(val/max*100)}%"></div>
+      </div>
+    </div>`).join('');
+}
+
+// ── ① OCCUPANCY ──
+function renderOccupancyReport(bks) {
+  if (!bks.length) { document.getElementById('report-content').innerHTML = '<div class="loading">لا يوجد نزلاء حالياً</div>'; return; }
+  var rooms = {};
+  bks.forEach(b => { if(!rooms[b.room_num]) rooms[b.room_num]=[]; rooms[b.room_num].push(b); });
+  var menBks = bks.filter(b=>b.gender==='male').length;
+  var womenBks = bks.filter(b=>b.gender==='female').length;
+  var totalBeds = 44;
+
+  var html = `
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px">
+      ${statBox(bks.length,'إجمالي النزلاء<br>Total Guests','#1B2D5B')}
+      ${statBox(menBks,'رجال / Men','#1B5E20')}
+      ${statBox(womenBks,'سيدات / Women','#7B3F9E')}
+      ${statBox(Math.round(bks.length/totalBeds*100)+'%','نسبة الإشغال<br>Occupancy Rate','#D4A017')}
+    </div>`;
+
+  var menRooms = Object.entries(rooms).filter(([n])=>n.startsWith('1')).sort((a,b)=>a[0].localeCompare(b[0],undefined,{numeric:true}));
+  var womenRooms = Object.entries(rooms).filter(([n])=>n.startsWith('2')).sort((a,b)=>a[0].localeCompare(b[0],undefined,{numeric:true}));
+
+  function roomTable(roomNum, guests, color) {
+    return `<div style="margin-bottom:10px;border-radius:8px;overflow:hidden;border:1px solid #EEF2FF">
+      <div style="background:${color};padding:7px 12px;display:flex;justify-content:space-between">
+        <span style="color:white;font-size:11px;font-weight:700">غرفة ${roomNum} — Room ${roomNum}</span>
+        <span style="color:rgba(255,255,255,.7);font-size:10px">${guests.length} نزيل</span>
+      </div>
+      <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:10px">
+        <thead><tr style="background:#F8F9FF">
+          <th style="padding:5px 8px;text-align:right;color:#1B2D5B;border-bottom:1px solid #EEF2FF">سرير</th>
+          <th style="padding:5px 8px;text-align:right;color:#1B2D5B;border-bottom:1px solid #EEF2FF">الاسم / Name</th>
+          <th style="padding:5px 8px;text-align:right;color:#1B2D5B;border-bottom:1px solid #EEF2FF">الجنسية</th>
+          <th style="padding:5px 8px;text-align:right;color:#1B2D5B;border-bottom:1px solid #EEF2FF">من</th>
+          <th style="padding:5px 8px;text-align:right;color:#1B2D5B;border-bottom:1px solid #EEF2FF">إلى</th>
+          <th style="padding:5px 8px;text-align:right;color:#1B2D5B;border-bottom:1px solid #EEF2FF">صلة</th>
+          <th style="padding:5px 8px;text-align:right;color:#1B2D5B;border-bottom:1px solid #EEF2FF">البطولة</th>
+        </tr></thead>
+        <tbody>${guests.map((g,i)=>`<tr style="background:${i%2===0?'white':'#F8F9FF'}">
+          <td style="padding:5px 8px;font-weight:700;color:${color}">${g.bed_id}</td>
+          <td style="padding:5px 8px;font-weight:600">${g.guest_name}</td>
+          <td style="padding:5px 8px">${g.nationality||'—'}</td>
+          <td style="padding:5px 8px">${g.checkin_date||'—'}</td>
+          <td style="padding:5px 8px">${g.checkout_date||'—'}</td>
+          <td style="padding:5px 8px">${g.role||'—'}</td>
+          <td style="padding:5px 8px">${g.tournament||'—'}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+    </div>`;
+  }
+
+  if (menRooms.length) html += reportCard('الدور الأول — رجال / Floor 1 Men', menRooms.map(([n,g])=>roomTable(n,g,'#1B2D5B')).join(''));
+  if (womenRooms.length) html += reportCard('الدور الثاني — سيدات / Floor 2 Women', womenRooms.map(([n,g])=>roomTable(n,g,'#7B3F9E')).join(''));
+
+  document.getElementById('report-content').innerHTML = html;
+}
+
+// ── ② GUESTS ──
+function renderGuestsReport(bks) {
+  if (!bks.length) { document.getElementById('report-content').innerHTML = '<div class="loading">لا يوجد بيانات</div>'; return; }
+  var active = bks.filter(b=>b.status==='checked_in');
+  var checkedOut = bks.filter(b=>b.status==='checked_out');
+  var nats = {}, roles = {};
+  bks.forEach(b => {
+    if(b.nationality) nats[b.nationality]=(nats[b.nationality]||0)+1;
+    if(b.role) roles[b.role]=(roles[b.role]||0)+1;
+  });
+  var avgNights = 0;
+  var nightsCount = 0;
+  bks.forEach(b => {
+    if(b.checkin_date && b.checkout_date) {
+      var d = Math.round((new Date(b.checkout_date)-new Date(b.checkin_date))/86400000);
+      if(d>0){avgNights+=d;nightsCount++;}
+    }
+  });
+
+  var html = `
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px">
+      ${statBox(bks.length,'إجمالي الحجوزات','#1B2D5B')}
+      ${statBox(active.length,'مقيمون حالياً','#1B5E20')}
+      ${statBox(checkedOut.length,'غادروا','#888')}
+      ${statBox(nightsCount?Math.round(avgNights/nightsCount):0,'متوسط الليالي','#D4A017')}
+    </div>`;
+
+  // Nationality breakdown
+  html += reportCard('🌍 الجنسيات / Nationalities',
+    `<div>${Object.entries(nats).sort((a,b)=>b[1]-a[1]).map(([n,c])=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #F0F2F8;font-size:11px">
+        <span>${n}</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="background:#EEF2FF;border-radius:4px;height:4px;width:80px">
+            <div style="background:#7B3F9E;height:4px;border-radius:4px;width:${Math.round(c/bks.length*100)}%"></div>
+          </div>
+          <span style="font-weight:700;color:#1B2D5B">${c}</span>
+        </div>
+      </div>`).join('')}</div>`);
+
+  // Role breakdown
+  html += reportCard('👤 صلة القرابة / Relations',
+    `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">${Object.entries(roles).sort((a,b)=>b[1]-a[1]).map(([r,c])=>`
+      <div style="background:#F8F9FF;border-radius:8px;padding:8px;display:flex;justify-content:space-between;font-size:11px">
+        <span>${r}</span><span style="font-weight:700;color:#1B2D5B">${c}</span>
+      </div>`).join('')}</div>`);
+
+  // Full guest list
+  html += reportCard('📋 قائمة النزلاء الكاملة / Full Guest List',
+    `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:10px">
+      <thead><tr style="background:linear-gradient(90deg,#1B2D5B,#243670)">
+        <th style="color:white;padding:7px 8px;text-align:right">الاسم</th>
+        <th style="color:white;padding:7px 8px;text-align:right">الجنسية</th>
+        <th style="color:white;padding:7px 8px;text-align:right">غرفة</th>
+        <th style="color:white;padding:7px 8px;text-align:right">صلة</th>
+        <th style="color:white;padding:7px 8px;text-align:right">من</th>
+        <th style="color:white;padding:7px 8px;text-align:right">إلى</th>
+        <th style="color:white;padding:7px 8px;text-align:right">الحالة</th>
+      </tr></thead>
+      <tbody>${bks.map((b,i)=>`<tr style="background:${i%2===0?'white':'#F8F9FF'}">
+        <td style="padding:6px 8px;font-weight:600">${b.guest_name}</td>
+        <td style="padding:6px 8px">${b.nationality||'—'}</td>
+        <td style="padding:6px 8px;font-weight:700;color:#1B2D5B">Rm ${b.room_num}</td>
+        <td style="padding:6px 8px">${b.role||'—'}</td>
+        <td style="padding:6px 8px">${b.checkin_date||'—'}</td>
+        <td style="padding:6px 8px">${b.checkout_date||'—'}</td>
+        <td style="padding:6px 8px"><span style="font-size:9px;padding:2px 6px;border-radius:8px;font-weight:700;background:${b.status==='checked_in'?'#EEF2FF':'#F5F5F5'};color:${b.status==='checked_in'?'#1B2D5B':'#888'}">${b.status}</span></td>
+      </tr>`).join('')}</tbody>
+    </table></div>`);
+
+  document.getElementById('report-content').innerHTML = html;
+}
+
+// ── ③ FINANCIAL ──
+function renderFinancialReport(bks) {
+  if (!bks.length) { document.getElementById('report-content').innerHTML = '<div class="loading">لا يوجد بيانات</div>'; return; }
+  var totalRev = bks.reduce((s,b)=>s+(Number(b.total_amount)||0),0);
+  var totalNights = 0;
+  var rateSum=0, rateCount=0;
+  bks.forEach(b => {
+    if(b.checkin_date&&b.checkout_date){var d=Math.round((new Date(b.checkout_date)-new Date(b.checkin_date))/86400000);if(d>0)totalNights+=d;}
+    if(b.room_type&&ROOM_RATES[b.room_type]){rateSum+=ROOM_RATES[b.room_type];rateCount++;}
+  });
+  var avgRate = rateCount ? Math.round(rateSum/rateCount) : 0;
+
+  // Revenue by room type
+  var byType = {single:0,double:0,triple:0,quad:0};
+  bks.forEach(b=>{if(b.room_type&&byType[b.room_type]!==undefined)byType[b.room_type]+=(Number(b.total_amount)||0);});
+
+  // Revenue by tournament
+  var byTour = {};
+  bks.forEach(b=>{if(b.tournament){byTour[b.tournament]=(byTour[b.tournament]||0)+(Number(b.total_amount)||0);}});
+
+  var html = `
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px">
+      ${statBox('$'+totalRev,'إجمالي الإيرادات<br>Total Revenue','#D4A017')}
+      ${statBox(totalNights,'إجمالي الليالي<br>Total Nights','#1B2D5B')}
+      ${statBox(bks.length,'عدد الحجوزات<br>Bookings','#1B5E20')}
+      ${statBox('$'+avgRate,'متوسط سعر الليلة<br>Avg Rate/Night','#7B3F9E')}
+    </div>`;
+
+  // Financial summary box
+  html += reportCard('💰 الملخص المالي / Financial Summary',
+    `<div style="background:linear-gradient(135deg,#0D1B3E,#1B2D5B);border-radius:10px;padding:14px">
+      <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.1);font-size:11px">
+        <span style="color:rgba(255,255,255,.7)">إجمالي الإيرادات</span><span style="color:white;font-weight:600">$${totalRev}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.1);font-size:11px">
+        <span style="color:rgba(255,255,255,.7)">إجمالي الليالي المباعة</span><span style="color:white;font-weight:600">${totalNights} ليلة</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.1);font-size:11px">
+        <span style="color:rgba(255,255,255,.7)">عدد الحجوزات</span><span style="color:white;font-weight:600">${bks.length}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0 0;font-size:13px">
+        <span style="color:rgba(255,255,255,.8);font-weight:600">متوسط سعر الليلة</span><span style="color:#D4A017;font-weight:800">$${avgRate}</span>
+      </div>
+    </div>`);
+
+  // By room type
+  html += reportCard('🏨 الإيرادات حسب نوع الغرفة / Revenue by Room Type',
+    `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${Object.entries(byType).map(([t,v])=>`
+      <div style="background:#F8F9FF;border-radius:8px;padding:10px;border:1px solid #EEF2FF">
+        <div style="font-size:10px;color:#888;margin-bottom:4px;text-transform:capitalize">${t} — $${ROOM_RATES[t]||0}/night</div>
+        <div style="font-size:16px;font-weight:800;color:#D4A017">$${v}</div>
+      </div>`).join('')}</div>`);
+
+  // By tournament
+  if (Object.keys(byTour).length) {
+    html += reportCard('🏆 الإيرادات حسب البطولة / Revenue by Tournament',
+      `<div>${Object.entries(byTour).sort((a,b)=>b[1]-a[1]).map(([t,v])=>`
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F0F2F8;font-size:11px">
+          <span>${t}</span><span style="font-weight:700;color:#D4A017">$${v}</span>
+        </div>`).join('')}</div>`);
+  }
+
+  // Booking details table
+  html += reportCard('📋 تفاصيل الحجوزات / Booking Details',
+    `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:10px">
+      <thead><tr style="background:linear-gradient(90deg,#1B2D5B,#243670)">
+        <th style="color:white;padding:7px 8px;text-align:right">الاسم</th>
+        <th style="color:white;padding:7px 8px;text-align:right">غرفة</th>
+        <th style="color:white;padding:7px 8px;text-align:right">النوع</th>
+        <th style="color:white;padding:7px 8px;text-align:right">الليالي</th>
+        <th style="color:white;padding:7px 8px;text-align:right">الإجمالي</th>
+      </tr></thead>
+      <tbody>${bks.map((b,i)=>{
+        var nights='—';
+        if(b.checkin_date&&b.checkout_date){var d=Math.round((new Date(b.checkout_date)-new Date(b.checkin_date))/86400000);if(d>0)nights=d+'n';}
+        return `<tr style="background:${i%2===0?'white':'#F8F9FF'}">
+          <td style="padding:6px 8px;font-weight:600">${b.guest_name}</td>
+          <td style="padding:6px 8px;color:#1B2D5B;font-weight:700">Rm ${b.room_num}</td>
+          <td style="padding:6px 8px">${b.room_type||'—'}</td>
+          <td style="padding:6px 8px;font-weight:600">${nights}</td>
+          <td style="padding:6px 8px;font-weight:700;color:#D4A017">${b.total_amount?'$'+b.total_amount:'—'}</td>
+        </tr>`;}).join('')}
+        <tr style="background:linear-gradient(90deg,#1B2D5B,#243670)">
+          <td colspan="3" style="padding:8px;color:rgba(255,255,255,.8);font-weight:600">الإجمالي / Total</td>
+          <td style="padding:8px;color:white;font-weight:700">${totalNights}n</td>
+          <td style="padding:8px;color:#D4A017;font-weight:800">$${totalRev}</td>
+        </tr>
+      </tbody>
+    </table></div>`);
+
+  document.getElementById('report-content').innerHTML = html;
+}
+
+// ── ④ SPORTS ──
+function renderSportsReport(bks) {
+  if (!bks.length) { document.getElementById('report-content').innerHTML = '<div class="loading">لا يوجد بيانات</div>'; return; }
+  var sports={}, tours={}, teams={}, coaches={};
+  bks.forEach(b=>{
+    if(b.sport) sports[b.sport]=(sports[b.sport]||0)+1;
+    if(b.tournament) tours[b.tournament]=(tours[b.tournament]||0)+1;
+    if(b.team) teams[b.team]=(teams[b.team]||0)+1;
+    if(b.reference_coach) coaches[b.reference_coach]=(coaches[b.reference_coach]||0)+1;
+  });
+
+  var topSport = Object.entries(sports).sort((a,b)=>b[1]-a[1])[0];
+  var topTour = Object.entries(tours).sort((a,b)=>b[1]-a[1])[0];
+
+  var html = `
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px">
+      ${statBox(Object.keys(sports).length,'رياضات مختلفة<br>Different Sports','#1B2D5B')}
+      ${statBox(Object.keys(tours).length,'بطولات حالية<br>Active Tournaments','#D4A017')}
+      ${statBox(Object.keys(teams).length,'فرق مختلفة<br>Different Teams','#1B5E20')}
+      ${statBox(bks.filter(b=>b.role==='Player').length,'لاعبين<br>Players','#7B3F9E')}
+    </div>`;
+
+  // Sports breakdown
+  html += reportCard('🏆 الرياضات / Sports Breakdown',
+    `<div>${Object.entries(sports).sort((a,b)=>b[1]-a[1]).map(([s,c])=>`
+      <div style="margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px">
+          <span style="font-weight:500">${s}</span><span style="font-weight:700;color:#1B2D5B">${c} نزيل</span>
+        </div>
+        <div style="background:#EEF2FF;border-radius:4px;height:5px">
+          <div style="background:#1B2D5B;height:5px;border-radius:4px;width:${Math.round(c/bks.length*100)}%"></div>
+        </div>
+      </div>`).join('')}</div>`);
+
+  // Tournaments
+  if (Object.keys(tours).length) {
+    html += reportCard('🏅 البطولات / Tournaments',
+      `<div>${Object.entries(tours).sort((a,b)=>b[1]-a[1]).map(([t,c])=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #F0F2F8;font-size:11px">
+          <span style="font-weight:500">${t}</span>
+          <span style="background:#EEF2FF;color:#1B2D5B;font-size:9px;padding:3px 8px;border-radius:10px;font-weight:700">${c} نزيل</span>
+        </div>`).join('')}</div>`);
+  }
+
+  // Teams
+  if (Object.keys(teams).length) {
+    html += reportCard('👕 الفرق / Teams',
+      `<div style="display:flex;flex-wrap:wrap;gap:6px">${Object.entries(teams).sort((a,b)=>b[1]-a[1]).map(([t,c])=>`
+        <span style="background:#EEF2FF;color:#1B2D5B;font-size:10px;padding:4px 10px;border-radius:20px;font-weight:600">${t} (${c})</span>`).join('')}</div>`);
+  }
+
+  // Coaches
+  if (Object.keys(coaches).length) {
+    html += reportCard('🎽 المدربين المرجعيين / Reference Coaches',
+      `<div>${Object.entries(coaches).sort((a,b)=>b[1]-a[1]).map(([c,n])=>`
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F0F2F8;font-size:11px">
+          <span>${c}</span><span style="font-weight:700;color:#1B2D5B">${n} نزيل</span>
+        </div>`).join('')}</div>`);
+  }
+
+  document.getElementById('report-content').innerHTML = html;
+}
+
+// ── PRINT & EXPORT ──
+function printCurrentReport() {
+  var content = document.getElementById('report-content').innerHTML;
+  var titles = {occupancy:'تقرير الإشغال — Occupancy Report', guests:'تقرير النزلاء — Guests Report', financial:'التقرير المالي — Financial Report', sports:'التقرير الرياضي — Sports Report'};
+  var now = new Date();
+  var w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8">
+    <title>${titles[currentReport]}</title>
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Cairo',Arial,sans-serif;padding:20px;color:#1a1a1a;font-size:12px}
+    .header{background:linear-gradient(135deg,#0D1B3E,#1B2D5B);padding:18px 22px;border-radius:10px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
+    .hn{color:white;font-size:20px;font-weight:900;letter-spacing:1px}
+    .hs{color:#D4A017;font-size:9px;letter-spacing:2px}
+    .rt{color:#D4A017;font-size:14px;font-weight:700}
+    .rd{color:rgba(255,255,255,.7);font-size:10px;margin-top:3px}
+    .gold-bar{height:3px;background:linear-gradient(90deg,#D4A017,#F0C030,#D4A017);margin-bottom:14px}
+    .card{background:white;border-radius:10px;padding:14px;border:0.5px solid #E0E0E0;margin-bottom:10px}
+    table{width:100%;border-collapse:collapse;font-size:11px}
+    th{background:linear-gradient(90deg,#1B2D5B,#243670);color:white;padding:7px 8px;text-align:right;font-weight:600}
+    td{padding:6px 8px;border-bottom:1px solid #F0F0F0}
+    tr:nth-child(even) td{background:#F8F9FF}
+    .footer{margin-top:16px;padding-top:10px;border-top:1px solid #e0e0e0;display:flex;justify-content:space-between;font-size:9px;color:#888}
+    @media print{body{padding:8px}.no-print{display:none}@page{size:A4;margin:8mm}}
+    </style></head><body>
+    <div class="header">
+      <div><div class="hn">SMASH</div><div class="hs">SPORTING CLUB · ACCOMMODATION</div></div>
+      <div style="text-align:left"><div class="rt">${titles[currentReport]}</div><div class="rd">${now.toLocaleDateString('ar-EG',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div><div class="rd">${now.toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'})} — ${now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div></div>
+    </div>
+    <div class="gold-bar"></div>
+    ${content}
+    <div class="footer">
+      <span>أعد بواسطة: ${currentUser.name}</span>
+      <span>Smash Sporting Club — Accommodation Management System</span>
+    </div>
+    <div class="no-print" style="text-align:center;margin-top:16px">
+      <button onclick="window.print()" style="background:#1B2D5B;color:white;border:none;padding:10px 24px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;margin-right:8px">🖨 طباعة</button>
+      <button onclick="window.close()" style="background:#f5f5f5;color:#555;border:1px solid #ddd;padding:10px 20px;border-radius:8px;font-size:13px;cursor:pointer">✕ إغلاق</button>
+    </div>
+    <script>window.onload=function(){window.print()}<\/script>
+    </body></html>`);
+  w.document.close();
+}
+
+function exportCurrentCSV() {
+  var bks = allReportData;
+  if (!bks.length) { alert('لا يوجد بيانات'); return; }
+  var rows, filename;
+  if (currentReport === 'occupancy' || currentReport === 'guests') {
+    rows = [['الغرفة','السرير','الاسم','الجنسية','الجنس','من','إلى','صلة','الرياضة','البطولة','الفريق','المدرب المرجعي','الحالة','الإجمالي']];
+    bks.forEach(b=>rows.push([b.room_num,b.bed_id,b.guest_name,b.nationality||'',b.gender||'',b.checkin_date||'',b.checkout_date||'',b.role||'',b.sport||'',b.tournament||'',b.team||'',b.reference_coach||'',b.status,b.total_amount||0]));
+    filename = 'SSC_Guests_';
+  } else if (currentReport === 'financial') {
+    rows = [['الاسم','الغرفة','نوع الغرفة','الليالي','الإجمالي','البطولة','الحالة']];
+    bks.forEach(b=>{
+      var nights='';
+      if(b.checkin_date&&b.checkout_date){var d=Math.round((new Date(b.checkout_date)-new Date(b.checkin_date))/86400000);if(d>0)nights=d;}
+      rows.push([b.guest_name,b.room_num,b.room_type||'',nights,b.total_amount||0,b.tournament||'',b.status]);
+    });
+    filename = 'SSC_Financial_';
+  } else {
+    rows = [['الاسم','الرياضة','البطولة','الفريق','المدرب المرجعي','صلة','الغرفة']];
+    bks.forEach(b=>rows.push([b.guest_name,b.sport||'',b.tournament||'',b.team||'',b.reference_coach||'',b.role||'',b.room_num]));
+    filename = 'SSC_Sports_';
+  }
+  var csv = rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
+  var blob = new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href=url; a.download=filename+new Date().toISOString().split('T')[0]+'.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
 
   // Group by room
   const rooms = {};
