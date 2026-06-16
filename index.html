@@ -321,6 +321,7 @@
               <th>Check-out</th>
               <th>Nights</th>
               <th>Meals</th>
+              <th>Amount</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
@@ -494,6 +495,30 @@
       </div>
       <div class="field"><label>Bed *</label>
         <select id="b-bed"><option value="">Select room first</option></select>
+      </div>
+    </div>
+    <div class="field"><label>Room Type (Occupancy) *</label>
+      <select id="b-room-type" onchange="calcNights()">
+        <option value="">Select type...</option>
+        <option value="single">Single — 1 person ($50/night)</option>
+        <option value="double">Double — 2 persons ($33/night)</option>
+        <option value="triple">Triple — 3 persons ($27/night)</option>
+        <option value="quad">Quad — 4 persons ($23/night)</option>
+      </select>
+    </div>
+    <div id="cost-display" style="display:none;background:linear-gradient(135deg,#0D1B3E,#1B2D5B);border-radius:10px;padding:12px 14px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="color:rgba(255,255,255,.7);font-size:11px">Room Rate</span>
+        <span style="color:white;font-size:11px;font-weight:600" id="cost-rate">—</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="color:rgba(255,255,255,.7);font-size:11px">Nights</span>
+        <span style="color:white;font-size:11px;font-weight:600" id="cost-nights">—</span>
+      </div>
+      <div style="height:1px;background:rgba(255,255,255,.15);margin-bottom:8px"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="color:rgba(255,255,255,.8);font-size:12px;font-weight:600">Total Amount</span>
+        <span style="color:#D4A017;font-size:18px;font-weight:900" id="cost-total">—</span>
       </div>
     </div>
     <div id="booking-modal-alert"></div>
@@ -872,10 +897,14 @@ async function loadBookings() {
       </td>
     </tr>`;
   }).join('');
+  let totalAmount = 0;
+  data.forEach(b => { if(b.total_amount) totalAmount += Number(b.total_amount); });
   const totalRow = `<tr style="background:var(--blue-lt)">
-    <td colspan="5" style="text-align:right;padding:10px 14px;color:var(--blue);font-weight:600;font-size:13px">إجمالي عدد الليالي — Total Nights</td>
-    <td style="color:var(--blue);font-size:15px;font-weight:700;padding:10px 14px">${totalNights} nights</td>
-    <td colspan="3"></td>
+    <td colspan="5" style="text-align:right;padding:10px 14px;color:var(--blue);font-weight:600;font-size:13px">إجمالي — Total</td>
+    <td style="color:var(--blue);font-size:14px;font-weight:700;padding:10px 14px">${totalNights} nights</td>
+    <td></td>
+    <td style="color:#D4A017;font-size:14px;font-weight:700;padding:10px 14px">${currentUser.role !== 'hk' ? '$'+totalAmount : ''}</td>
+    <td colspan="2"></td>
   </tr>`;
   tbody.innerHTML = rows + totalRow;
 }
@@ -898,17 +927,37 @@ function openBookingModal() {
   document.getElementById('booking-modal').classList.add('show');
 }
 
+var ROOM_RATES = { single: 50, double: 33, triple: 27, quad: 23 };
+
 function calcNights() {
-  const ci = document.getElementById('b-checkin').value;
-  const co = document.getElementById('b-checkout').value;
-  const el = document.getElementById('nights-display');
+  var ci = document.getElementById('b-checkin').value;
+  var co = document.getElementById('b-checkout').value;
+  var typeEl = document.getElementById('b-room-type');
+  var type = typeEl ? typeEl.value : '';
+  var el = document.getElementById('nights-display');
+  var costEl = document.getElementById('cost-display');
   if (ci && co) {
-    const d1 = new Date(ci), d2 = new Date(co);
-    const diff = Math.round((d2-d1)/(1000*60*60*24));
-    el.textContent = diff > 0 ? `Total Nights: ${diff} nights` : 'Check-out must be after check-in';
-    el.style.color = diff > 0 ? 'var(--blue)' : 'var(--red)';
+    var d1 = new Date(ci), d2 = new Date(co);
+    var diff = Math.round((d2-d1)/(1000*60*60*24));
+    if (diff > 0) {
+      el.textContent = 'Total Nights: ' + diff + ' nights';
+      el.style.color = 'var(--blue)';
+      if (type && ROOM_RATES[type] && costEl) {
+        var rate = ROOM_RATES[type];
+        var total = rate * diff;
+        costEl.style.display = 'block';
+        document.getElementById('cost-rate').textContent = '$' + rate + '/night (' + type + ')';
+        document.getElementById('cost-nights').textContent = diff + ' nights';
+        document.getElementById('cost-total').textContent = '$' + total;
+      } else if (costEl) { costEl.style.display = 'none'; }
+    } else {
+      el.textContent = 'Check-out must be after check-in';
+      el.style.color = 'var(--red)';
+      if (costEl) costEl.style.display = 'none';
+    }
   } else {
     el.textContent = 'Total Nights: —';
+    if (costEl) costEl.style.display = 'none';
   }
 }
 
@@ -1062,6 +1111,14 @@ async function saveBooking() {
     checkin_time: document.getElementById('b-checkin-time').value,
     checkout_time: document.getElementById('b-checkout-time').value,
     meals: document.getElementById('b-meals').value,
+    room_type: document.getElementById('b-room-type') ? document.getElementById('b-room-type').value : '',
+    total_amount: (function(){
+      var t = document.getElementById('b-room-type') ? document.getElementById('b-room-type').value : '';
+      if(t && checkin && checkout && ROOM_RATES[t]){
+        var d = Math.round((new Date(checkout)-new Date(checkin))/86400000);
+        return d > 0 ? ROOM_RATES[t] * d : 0;
+      } return 0;
+    })(),
     status: 'checked_in',
     registered_by: currentUser.name,
     created_at: new Date().toISOString()
@@ -1450,8 +1507,20 @@ function renderGuestsReport(bks) {
 }
 
 // ── ③ FINANCIAL ──
-function renderFinancialReport(bks) {
+async function renderFinancialReport(bks) {
   if (!bks.length) { document.getElementById('report-content').innerHTML = '<div class="loading">لا يوجد بيانات</div>'; return; }
+
+  // Load ALL bookings for monthly comparison
+  var { data: allBks } = await db.from('bookings').select('*');
+  allBks = allBks || [];
+
+  var now = new Date();
+  var todayStr = now.toISOString().split('T')[0];
+  var monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  var lastMonthStart = new Date(now.getFullYear(), now.getMonth()-1, 1);
+  var lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  // Stats
   var totalRev = bks.reduce((s,b)=>s+(Number(b.total_amount)||0),0);
   var totalNights = 0;
   var rateSum=0, rateCount=0;
@@ -1461,13 +1530,39 @@ function renderFinancialReport(bks) {
   });
   var avgRate = rateCount ? Math.round(rateSum/rateCount) : 0;
 
-  // Revenue by room type
+  // Daily Revenue
+  var dailyMap = {};
+  allBks.forEach(b => {
+    var d = b.checkin_date || (b.created_at ? b.created_at.split('T')[0] : null);
+    if (d && b.total_amount) {
+      if (!dailyMap[d]) dailyMap[d] = { total: 0, bookings: [] };
+      dailyMap[d].total += Number(b.total_amount);
+      dailyMap[d].bookings.push(b);
+    }
+  });
+  var dailyDays = Object.entries(dailyMap).sort((a,b) => b[0].localeCompare(a[0])).slice(0, 30);
+
+  // Monthly comparison
+  var thisMonthBks = allBks.filter(b => new Date(b.created_at) >= monthStart);
+  var lastMonthBks = allBks.filter(b => new Date(b.created_at) >= lastMonthStart && new Date(b.created_at) < lastMonthEnd);
+  var thisMonthRev = thisMonthBks.reduce((s,b)=>s+(Number(b.total_amount)||0),0);
+  var lastMonthRev = lastMonthBks.reduce((s,b)=>s+(Number(b.total_amount)||0),0);
+  var revChange = lastMonthRev > 0 ? Math.round(((thisMonthRev-lastMonthRev)/lastMonthRev)*100) : 0;
+  var thisMonthNights = 0, lastMonthNights = 0;
+  thisMonthBks.forEach(b=>{if(b.checkin_date&&b.checkout_date){var d=Math.round((new Date(b.checkout_date)-new Date(b.checkin_date))/86400000);if(d>0)thisMonthNights+=d;}});
+  lastMonthBks.forEach(b=>{if(b.checkin_date&&b.checkout_date){var d=Math.round((new Date(b.checkout_date)-new Date(b.checkin_date))/86400000);if(d>0)lastMonthNights+=d;}});
+
+  // By room type
   var byType = {single:0,double:0,triple:0,quad:0};
   bks.forEach(b=>{if(b.room_type&&byType[b.room_type]!==undefined)byType[b.room_type]+=(Number(b.total_amount)||0);});
 
-  // Revenue by tournament
+  // By tournament
   var byTour = {};
   bks.forEach(b=>{if(b.tournament){byTour[b.tournament]=(byTour[b.tournament]||0)+(Number(b.total_amount)||0);}});
+
+  var thisMonthName = now.toLocaleDateString('ar-EG', {month:'long', year:'numeric'});
+  var lastMonthDate = new Date(now.getFullYear(), now.getMonth()-1, 1);
+  var lastMonthName = lastMonthDate.toLocaleDateString('ar-EG', {month:'long', year:'numeric'});
 
   var html = `
     <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px">
@@ -1477,49 +1572,127 @@ function renderFinancialReport(bks) {
       ${statBox('$'+avgRate,'متوسط سعر الليلة<br>Avg Rate/Night','#7B3F9E')}
     </div>`;
 
-  // Financial summary box
-  html += reportCard('💰 الملخص المالي / Financial Summary',
-    `<div style="background:linear-gradient(135deg,#0D1B3E,#1B2D5B);border-radius:10px;padding:14px">
-      <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.1);font-size:11px">
-        <span style="color:rgba(255,255,255,.7)">إجمالي الإيرادات</span><span style="color:white;font-weight:600">$${totalRev}</span>
+  // ① DAILY REPORT
+  html += reportCard('📅 التقرير اليومي / Daily Revenue',
+    dailyDays.length === 0 ? '<div style="text-align:center;padding:16px;color:#888;font-size:12px">لا يوجد بيانات يومية</div>' :
+    `<div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:11px">
+        <thead><tr style="background:linear-gradient(90deg,#0D1B3E,#1B2D5B)">
+          <th style="color:white;padding:7px 10px;text-align:right">التاريخ / Date</th>
+          <th style="color:white;padding:7px 10px;text-align:right">الحجوزات</th>
+          <th style="color:white;padding:7px 10px;text-align:right">النزلاء</th>
+          <th style="color:white;padding:7px 10px;text-align:right">الإيراد</th>
+        </tr></thead>
+        <tbody>
+          ${dailyDays.map(([date, data], i) => `
+            <tr style="background:${i%2===0?'white':'#F8F9FF'};cursor:pointer" onclick="toggleDailyDetail('day-${i}')">
+              <td style="padding:7px 10px;font-weight:700;color:#1B2D5B">
+                ${date}
+                ${date===todayStr?' <span style="background:#E8F5E9;color:#1B5E20;font-size:9px;padding:1px 6px;border-radius:8px;font-weight:700">اليوم</span>':''}
+                <span style="color:#888;font-size:9px"> ▼</span>
+              </td>
+              <td style="padding:7px 10px">${data.bookings.length}</td>
+              <td style="padding:7px 10px;font-size:10px;color:#555">${data.bookings.slice(0,2).map(b=>b.guest_name).join('، ')}${data.bookings.length>2?' +more':''}</td>
+              <td style="padding:7px 10px;font-weight:800;color:#D4A017;font-size:13px">$${data.total}</td>
+            </tr>
+            <tr id="day-${i}" style="display:none;background:#FFFDF0">
+              <td colspan="4" style="padding:0 10px 8px">
+                <table style="width:100%;font-size:10px;border-collapse:collapse;border-radius:8px;overflow:hidden">
+                  <thead><tr style="background:#EEF2FF">
+                    <th style="padding:5px 8px;text-align:right;color:#1B2D5B">الاسم</th>
+                    <th style="padding:5px 8px;text-align:right;color:#1B2D5B">الغرفة</th>
+                    <th style="padding:5px 8px;text-align:right;color:#1B2D5B">النوع</th>
+                    <th style="padding:5px 8px;text-align:right;color:#1B2D5B">الليالي</th>
+                    <th style="padding:5px 8px;text-align:right;color:#1B2D5B">المبلغ</th>
+                  </tr></thead>
+                  <tbody>${data.bookings.map((b,j)=>{
+                    var n='—';
+                    if(b.checkin_date&&b.checkout_date){var dd=Math.round((new Date(b.checkout_date)-new Date(b.checkin_date))/86400000);if(dd>0)n=dd+'n';}
+                    return `<tr style="background:${j%2===0?'white':'#F8F9FF'}">
+                      <td style="padding:4px 8px;font-weight:600">${b.guest_name}</td>
+                      <td style="padding:4px 8px;color:#1B2D5B;font-weight:700">Rm ${b.room_num}</td>
+                      <td style="padding:4px 8px">${b.room_type||'—'}</td>
+                      <td style="padding:4px 8px">${n}</td>
+                      <td style="padding:4px 8px;font-weight:700;color:#D4A017">$${b.total_amount||0}</td>
+                    </tr>`;
+                  }).join('')}
+                  <tr style="background:#1B2D5B">
+                    <td colspan="4" style="padding:5px 8px;color:rgba(255,255,255,.8);font-weight:600">إجمالي اليوم</td>
+                    <td style="padding:5px 8px;color:#D4A017;font-weight:800">$${data.total}</td>
+                  </tr></tbody>
+                </table>
+              </td>
+            </tr>`).join('')}
+          <tr style="background:linear-gradient(90deg,#0D1B3E,#1B2D5B)">
+            <td colspan="3" style="padding:8px 10px;color:rgba(255,255,255,.8);font-weight:600">إجمالي كل الأيام / Grand Total</td>
+            <td style="padding:8px 10px;color:#D4A017;font-weight:900;font-size:15px">$${Object.values(dailyMap).reduce((s,d)=>s+d.total,0)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>`);
+
+  // ② MONTHLY COMPARISON
+  html += reportCard('📊 المقارنة الشهرية / Monthly Comparison',
+    `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div style="background:linear-gradient(135deg,#0D1B3E,#1B2D5B);border-radius:12px;padding:14px">
+        <div style="color:#D4A017;font-size:10px;font-weight:700;margin-bottom:8px">${thisMonthName}</div>
+        <div style="color:white;font-size:26px;font-weight:900;margin-bottom:4px">$${thisMonthRev}</div>
+        <div style="color:rgba(255,255,255,.6);font-size:10px">${thisMonthBks.length} حجز • ${thisMonthNights} ليلة</div>
       </div>
-      <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.1);font-size:11px">
-        <span style="color:rgba(255,255,255,.7)">إجمالي الليالي المباعة</span><span style="color:white;font-weight:600">${totalNights} ليلة</span>
+      <div style="background:#F8F9FF;border-radius:12px;padding:14px;border:1px solid #EEF2FF">
+        <div style="color:#888;font-size:10px;font-weight:700;margin-bottom:8px">${lastMonthName}</div>
+        <div style="color:#1B2D5B;font-size:26px;font-weight:900;margin-bottom:4px">$${lastMonthRev}</div>
+        <div style="color:#888;font-size:10px">${lastMonthBks.length} حجز • ${lastMonthNights} ليلة</div>
       </div>
-      <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.1);font-size:11px">
-        <span style="color:rgba(255,255,255,.7)">عدد الحجوزات</span><span style="color:white;font-weight:600">${bks.length}</span>
+    </div>
+    <div style="background:${revChange>=0?'#E8F5E9':'#FFEBEE'};border-radius:10px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:12px;font-weight:700;color:${revChange>=0?'#1B5E20':'#B71C1C'}">
+          ${revChange>=0?'▲ زيادة':'▼ نقص'} ${Math.abs(revChange)}% مقارنة بالشهر الماضي
+        </div>
+        <div style="font-size:10px;color:#888;margin-top:2px">
+          الفرق: ${revChange>=0?'+':''}$${thisMonthRev-lastMonthRev}
+        </div>
       </div>
-      <div style="display:flex;justify-content:space-between;padding:8px 0 0;font-size:13px">
-        <span style="color:rgba(255,255,255,.8);font-weight:600">متوسط سعر الليلة</span><span style="color:#D4A017;font-weight:800">$${avgRate}</span>
+      <div style="font-size:28px;font-weight:900;color:${revChange>=0?'#1B5E20':'#B71C1C'}">
+        ${revChange>=0?'📈':'📉'}
       </div>
     </div>`);
 
-  // By room type
+  // ③ BY ROOM TYPE
   html += reportCard('🏨 الإيرادات حسب نوع الغرفة / Revenue by Room Type',
     `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${Object.entries(byType).map(([t,v])=>`
-      <div style="background:#F8F9FF;border-radius:8px;padding:10px;border:1px solid #EEF2FF">
+      <div style="background:#F8F9FF;border-radius:8px;padding:12px;border:1px solid #EEF2FF">
         <div style="font-size:10px;color:#888;margin-bottom:4px;text-transform:capitalize">${t} — $${ROOM_RATES[t]||0}/night</div>
-        <div style="font-size:16px;font-weight:800;color:#D4A017">$${v}</div>
+        <div style="font-size:20px;font-weight:800;color:#D4A017">$${v}</div>
+        <div style="font-size:9px;color:#888;margin-top:2px">${v>0?Math.round(v/totalRev*100)+'% من الإجمالي':''}</div>
       </div>`).join('')}</div>`);
 
-  // By tournament
+  // ④ BY TOURNAMENT
   if (Object.keys(byTour).length) {
     html += reportCard('🏆 الإيرادات حسب البطولة / Revenue by Tournament',
       `<div>${Object.entries(byTour).sort((a,b)=>b[1]-a[1]).map(([t,v])=>`
-        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F0F2F8;font-size:11px">
-          <span>${t}</span><span style="font-weight:700;color:#D4A017">$${v}</span>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #F0F2F8;font-size:11px">
+          <div>
+            <div style="font-weight:600">${t}</div>
+            <div style="font-size:9px;color:#888;margin-top:1px">${bks.filter(b=>b.tournament===t).length} نزيل</div>
+          </div>
+          <span style="font-weight:900;color:#D4A017;font-size:15px">$${v}</span>
         </div>`).join('')}</div>`);
   }
 
-  // Booking details table
+  // ⑤ FULL DETAILS TABLE
   html += reportCard('📋 تفاصيل الحجوزات / Booking Details',
     `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:10px">
       <thead><tr style="background:linear-gradient(90deg,#1B2D5B,#243670)">
         <th style="color:white;padding:7px 8px;text-align:right">الاسم</th>
         <th style="color:white;padding:7px 8px;text-align:right">غرفة</th>
         <th style="color:white;padding:7px 8px;text-align:right">النوع</th>
-        <th style="color:white;padding:7px 8px;text-align:right">الليالي</th>
+        <th style="color:white;padding:7px 8px;text-align:right">من</th>
+        <th style="color:white;padding:7px 8px;text-align:right">إلى</th>
+        <th style="color:white;padding:7px 8px;text-align:right">ليالي</th>
         <th style="color:white;padding:7px 8px;text-align:right">الإجمالي</th>
+        <th style="color:white;padding:7px 8px;text-align:right">البطولة</th>
       </tr></thead>
       <tbody>${bks.map((b,i)=>{
         var nights='—';
@@ -1528,18 +1701,27 @@ function renderFinancialReport(bks) {
           <td style="padding:6px 8px;font-weight:600">${b.guest_name}</td>
           <td style="padding:6px 8px;color:#1B2D5B;font-weight:700">Rm ${b.room_num}</td>
           <td style="padding:6px 8px">${b.room_type||'—'}</td>
+          <td style="padding:6px 8px">${b.checkin_date||'—'}</td>
+          <td style="padding:6px 8px">${b.checkout_date||'—'}</td>
           <td style="padding:6px 8px;font-weight:600">${nights}</td>
-          <td style="padding:6px 8px;font-weight:700;color:#D4A017">${b.total_amount?'$'+b.total_amount:'—'}</td>
+          <td style="padding:6px 8px;font-weight:800;color:#D4A017">${b.total_amount?'$'+b.total_amount:'—'}</td>
+          <td style="padding:6px 8px">${b.tournament||'—'}</td>
         </tr>`;}).join('')}
-        <tr style="background:linear-gradient(90deg,#1B2D5B,#243670)">
-          <td colspan="3" style="padding:8px;color:rgba(255,255,255,.8);font-weight:600">الإجمالي / Total</td>
+        <tr style="background:linear-gradient(90deg,#0D1B3E,#1B2D5B)">
+          <td colspan="5" style="padding:8px;color:rgba(255,255,255,.8);font-weight:600">الإجمالي / Total</td>
           <td style="padding:8px;color:white;font-weight:700">${totalNights}n</td>
-          <td style="padding:8px;color:#D4A017;font-weight:800">$${totalRev}</td>
+          <td style="padding:8px;color:#D4A017;font-weight:900;font-size:14px">$${totalRev}</td>
+          <td></td>
         </tr>
       </tbody>
     </table></div>`);
 
   document.getElementById('report-content').innerHTML = html;
+}
+
+function toggleDailyDetail(id) {
+  var el = document.getElementById(id);
+  if (el) el.style.display = el.style.display === 'none' ? 'table-row' : 'none';
 }
 
 // ── ④ SPORTS ──
