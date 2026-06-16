@@ -307,7 +307,7 @@
     <div class="page" id="page-bookings">
       <div class="sec-header">
         <span class="sec-title">Bookings</span>
-        <button class="btn btn-primary" onclick="openBookingModal()">+ New Booking</button>
+        ${currentUser && currentUser.role !== 'hk' ? `<button class="btn btn-primary" onclick="openBookingModal()">+ New Booking</button>` : ''}
       </div>
       <div id="bookings-alert"></div>
       <div class="card">
@@ -391,7 +391,7 @@
       <div style="display:flex;gap:4px;background:#EEF2FF;border-radius:12px;padding:4px;margin-bottom:12px;overflow-x:auto;scrollbar-width:none">
         <button class="rep-tab active" onclick="switchReport('occupancy',this)" style="flex:1;padding:8px 10px;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;background:#1B2D5B;color:white;white-space:nowrap">🏨 الإشغال</button>
         <button class="rep-tab" onclick="switchReport('guests',this)" style="flex:1;padding:8px 10px;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;background:transparent;color:#888;white-space:nowrap">👥 النزلاء</button>
-        <button class="rep-tab" onclick="switchReport('financial',this)" style="flex:1;padding:8px 10px;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;background:transparent;color:#888;white-space:nowrap">💰 المالي</button>
+        <button class="rep-tab" id="financial-tab-btn" onclick="switchReport('financial',this)" style="flex:1;padding:8px 10px;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;background:transparent;color:#888;white-space:nowrap">💰 المالي</button>
         <button class="rep-tab" onclick="switchReport('sports',this)" style="flex:1;padding:8px 10px;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;background:transparent;color:#888;white-space:nowrap">🏆 الرياضي</button>
       </div>
 
@@ -615,6 +615,7 @@ const STAFF = [
   { username:'cleaning',  password:'smash2024', name:'Cleaning Staff',   role:'cleaning' },
   { username:'security',  password:'smash2024', name:'Security Officer', role:'security' },
   { username:'it',        password:'smash2024', name:'IT Admin',         role:'it' },
+  { username:'hk',        password:'hk2026',    name:'HK Manager',       role:'hk' },
 ];
 
 // ══════════════════════════════════════════
@@ -692,6 +693,9 @@ async function doLogin() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   document.getElementById('user-name-display').textContent = '⚡ ' + staff.role.toUpperCase() + ' · ' + staff.name;
+  // Hide financial tab for HK
+  var finTab = document.getElementById('financial-tab-btn');
+  if (finTab) finTab.style.display = staff.role === 'hk' ? 'none' : '';
   buildNav();
   loadDashboard();
 }
@@ -713,6 +717,7 @@ const NAV_CONFIG = {
   cleaning:  ['cleaning'],
   security:  ['security'],
   it:        ['wifi'],
+  hk:        ['dashboard','rooms','bookings','cleaning','reports'],
 };
 const NAV_LABELS = {
   dashboard: '<span class="tab-icon">⚡</span>Dashboard',
@@ -855,11 +860,15 @@ async function loadBookings() {
       <td>${co}${b.checkout_time?'<br><span style="color:var(--gray);font-size:10px">'+b.checkout_time+'</span>':''}</td>
       <td style="font-weight:500;color:var(--blue)">${nights}</td>
       <td>${b.meals ? `<span class="status-badge ${b.meals==='BB'?'s-in':b.meals==='HB'?'s-pending':'s-out'}" style="font-size:10px">${b.meals}</span>` : '—'}</td>
+      ${currentUser.role !== 'hk' ? `<td style="font-weight:700;color:#D4A017;font-size:12px">${b.total_amount ? '$'+b.total_amount : '—'}</td>` : ''}
       <td><span class="status-badge ${b.status==='checked_in'?'s-in':b.status==='checked_out'?'s-out':'s-pending'}">${b.status}</span></td>
       <td style="display:flex;gap:4px;flex-wrap:wrap">
-        <button class="btn btn-ghost" style="padding:4px 8px;font-size:10px" onclick="openEditModal('${b.id}')">✏️ Edit</button>
-        ${b.status==='checked_in'?`<button class="btn btn-danger" style="padding:4px 8px;font-size:10px" onclick="checkOut('${b.id}')">Check Out</button>`:''}
-        <button class="btn" style="padding:4px 8px;font-size:10px;background:var(--red-lt);color:var(--red);border:1px solid var(--red)" onclick="deleteBooking('${b.id}','${b.guest_name}')">🗑 Delete</button>
+        <button class="btn btn-ghost" style="padding:4px 8px;font-size:10px;background:var(--navy-lt);color:var(--navy2);border:1px solid var(--navy-lt)" onclick="openViewModal('${b.id}')">👁 View</button>
+        ${currentUser.role !== 'hk' ? `
+          <button class="btn btn-ghost" style="padding:4px 8px;font-size:10px" onclick="openEditModal('${b.id}')">✏️ Edit</button>
+          ${b.status==='checked_in'?`<button class="btn btn-danger" style="padding:4px 8px;font-size:10px" onclick="checkOut('${b.id}')">Check Out</button>`:''}
+          <button class="btn" style="padding:4px 8px;font-size:10px;background:var(--red-lt);color:var(--red);border:1px solid var(--red)" onclick="deleteBooking('${b.id}','${b.guest_name}')">🗑 Delete</button>
+        ` : ''}
       </td>
     </tr>`;
   }).join('');
