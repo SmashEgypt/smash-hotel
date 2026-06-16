@@ -307,7 +307,7 @@
     <div class="page" id="page-bookings">
       <div class="sec-header">
         <span class="sec-title">Bookings</span>
-        ${currentUser && currentUser.role !== 'hk' ? `<button class="btn btn-primary" onclick="openBookingModal()">+ New Booking</button>` : ''}
+        <button class="btn btn-primary" id="new-booking-btn" onclick="openBookingModal()" style="display:none">+ New Booking</button>
       </div>
       <div id="bookings-alert"></div>
       <div class="card">
@@ -718,6 +718,9 @@ async function doLogin() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   document.getElementById('user-name-display').textContent = '⚡ ' + staff.role.toUpperCase() + ' · ' + staff.name;
+  // Show/hide New Booking button based on role
+  var newBkBtn = document.getElementById('new-booking-btn');
+  if (newBkBtn) newBkBtn.style.display = (staff.role === 'hk' || staff.role === 'cleaning' || staff.role === 'security' || staff.role === 'it') ? 'none' : 'inline-block';
   // Hide financial tab for HK
   var finTab = document.getElementById('financial-tab-btn');
   if (finTab) finTab.style.display = staff.role === 'hk' ? 'none' : '';
