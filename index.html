@@ -579,6 +579,30 @@
         <option value="FB">FB — Full Board (فطار + غداء + عشاء)</option>
       </select>
     </div>
+    <div class="field"><label>Room Type (Occupancy)</label>
+      <select id="edit-b-room-type" onchange="calcEditNights()">
+        <option value="">Select type...</option>
+        <option value="single">Single — 1 person ($50/night)</option>
+        <option value="double">Double — 2 persons ($33/night)</option>
+        <option value="triple">Triple — 3 persons ($27/night)</option>
+        <option value="quad">Quad — 4 persons ($23/night)</option>
+      </select>
+    </div>
+    <div id="edit-cost-display" style="display:none;background:linear-gradient(135deg,#0D1B3E,#1B2D5B);border-radius:10px;padding:12px 14px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="color:rgba(255,255,255,.7);font-size:11px">Room Rate</span>
+        <span style="color:white;font-size:11px;font-weight:600" id="edit-cost-rate">—</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="color:rgba(255,255,255,.7);font-size:11px">Nights</span>
+        <span style="color:white;font-size:11px;font-weight:600" id="edit-cost-nights">—</span>
+      </div>
+      <div style="height:1px;background:rgba(255,255,255,.15);margin-bottom:8px"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="color:rgba(255,255,255,.8);font-size:12px;font-weight:600">Total Amount</span>
+        <span style="color:#D4A017;font-size:18px;font-weight:900" id="edit-cost-total">—</span>
+      </div>
+    </div>
     <div class="grid-2">
       <div class="field"><label>Check-in Date</label><input type="date" id="edit-b-checkin" onchange="calcEditNights()" /></div>
       <div class="field"><label>Check-in Time</label><input type="time" id="edit-b-checkin-time" /></div>
@@ -965,16 +989,34 @@ function calcNights() {
 }
 
 function calcEditNights() {
-  const ci = document.getElementById('edit-b-checkin').value;
-  const co = document.getElementById('edit-b-checkout').value;
-  const el = document.getElementById('edit-nights-display');
+  var ci = document.getElementById('edit-b-checkin').value;
+  var co = document.getElementById('edit-b-checkout').value;
+  var typeEl = document.getElementById('edit-b-room-type');
+  var type = typeEl ? typeEl.value : '';
+  var el = document.getElementById('edit-nights-display');
+  var costEl = document.getElementById('edit-cost-display');
   if (ci && co) {
-    const d1 = new Date(ci), d2 = new Date(co);
-    const diff = Math.round((d2-d1)/(1000*60*60*24));
-    el.textContent = diff > 0 ? `Total Nights: ${diff} nights` : 'Check-out must be after check-in';
-    el.style.color = diff > 0 ? 'var(--blue)' : 'var(--red)';
+    var d1 = new Date(ci), d2 = new Date(co);
+    var diff = Math.round((d2-d1)/(1000*60*60*24));
+    if (diff > 0) {
+      el.textContent = 'Total Nights: ' + diff + ' nights';
+      el.style.color = 'var(--blue)';
+      if (type && ROOM_RATES[type] && costEl) {
+        var rate = ROOM_RATES[type];
+        var total = rate * diff;
+        costEl.style.display = 'block';
+        document.getElementById('edit-cost-rate').textContent = '$' + rate + '/night (' + type + ')';
+        document.getElementById('edit-cost-nights').textContent = diff + ' nights';
+        document.getElementById('edit-cost-total').textContent = '$' + total;
+      } else if (costEl) { costEl.style.display = 'none'; }
+    } else {
+      el.textContent = 'Check-out must be after check-in';
+      el.style.color = 'var(--red)';
+      if (costEl) costEl.style.display = 'none';
+    }
   } else {
     el.textContent = 'Total Nights: —';
+    if (costEl) costEl.style.display = 'none';
   }
 }
 
@@ -1032,6 +1074,9 @@ async function openEditModal(id) {
   document.getElementById('edit-b-checkin-time').value = b.checkin_time || '';
   document.getElementById('edit-b-checkout-time').value = b.checkout_time || '';
   document.getElementById('edit-b-meals').value = b.meals || '';
+  if (document.getElementById('edit-b-room-type')) {
+    document.getElementById('edit-b-room-type').value = b.room_type || '';
+  }
   document.getElementById('edit-booking-alert').innerHTML = '';
   calcEditNights();
   document.getElementById('edit-booking-modal').classList.add('show');
@@ -1058,6 +1103,16 @@ async function updateBooking() {
     checkin_time: document.getElementById('edit-b-checkin-time').value,
     checkout_time: document.getElementById('edit-b-checkout-time').value,
     meals: document.getElementById('edit-b-meals').value,
+    room_type: document.getElementById('edit-b-room-type') ? document.getElementById('edit-b-room-type').value : '',
+    total_amount: (function(){
+      var t = document.getElementById('edit-b-room-type') ? document.getElementById('edit-b-room-type').value : '';
+      var ci = document.getElementById('edit-b-checkin').value;
+      var co = document.getElementById('edit-b-checkout').value;
+      if(t && ci && co && ROOM_RATES[t]){
+        var d = Math.round((new Date(co)-new Date(ci))/86400000);
+        return d > 0 ? ROOM_RATES[t] * d : 0;
+      } return 0;
+    })(),
     updated_by: currentUser.name,
     updated_at: new Date().toISOString()
   }).eq('id', id);
