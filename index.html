@@ -1312,7 +1312,7 @@ async function confirmTransfer() {
     alertEl.innerHTML = '<div class="alert alert-error">Please fill all required fields</div>'; return;
   }
   if (newRoom === transferBookingData.room_num && newBed === transferBookingData.bed_id) {
-    alertEl.innerHTML = '<div class="alert alert-error">This is already the guest\\'s current room/bed</div>'; return;
+    alertEl.innerHTML = '<div class="alert alert-error">This is already the current room/bed</div>'; return;
   }
 
   // 1. Log the transfer in room_history
