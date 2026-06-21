@@ -619,6 +619,43 @@
   </div>
 </div>
 
+<!-- ══ TRANSFER ROOM MODAL ══ -->
+<div class="modal-overlay" id="transfer-modal">
+  <div class="modal">
+    <div class="modal-title">
+      🔄 Transfer Room
+      <button class="modal-close" onclick="closeModal('transfer-modal')">×</button>
+    </div>
+    <input type="hidden" id="transfer-b-id" />
+    <div style="background:linear-gradient(135deg,#0D1B3E,#1B2D5B);border-radius:10px;padding:12px 14px;margin-bottom:14px">
+      <div style="color:white;font-size:13px;font-weight:700" id="transfer-guest-name">—</div>
+      <div style="color:rgba(255,255,255,.6);font-size:11px;margin-top:3px" id="transfer-current-room">Current: —</div>
+    </div>
+
+    <div class="field">
+      <label>Transfer Date *</label>
+      <input type="date" id="transfer-date" />
+    </div>
+
+    <div class="field">
+      <label>New Room *</label>
+      <select id="transfer-room" onchange="loadTransferBeds()">
+        <option value="">Select room...</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>New Bed *</label>
+      <select id="transfer-bed">
+        <option value="">Select room first</option>
+      </select>
+    </div>
+
+    <div id="transfer-modal-alert"></div>
+    <button class="btn btn-primary btn-full" onclick="confirmTransfer()">✓ Confirm Transfer</button>
+  </div>
+</div>
+
 <!-- ══ VISITOR MODAL ══ -->
 <div class="modal-overlay" id="visitor-modal">
   <div class="modal">
@@ -918,6 +955,7 @@ async function loadBookings() {
         <button class="btn btn-ghost" style="padding:4px 8px;font-size:10px;background:var(--navy-lt);color:var(--navy2);border:1px solid var(--navy-lt)" onclick="openViewModal('${b.id}')">👁 View</button>
         ${currentUser.role !== 'hk' ? `
           <button class="btn btn-ghost" style="padding:4px 8px;font-size:10px" onclick="openEditModal('${b.id}')">✏️ Edit</button>
+          ${b.status==='checked_in'?`<button class="btn" style="padding:4px 8px;font-size:10px;background:#FFF8E1;color:#D4A017;border:1px solid #D4A017" onclick="openTransferModal('${b.id}')">🔄 Transfer</button>`:''}
           ${b.status==='checked_in'?`<button class="btn btn-danger" style="padding:4px 8px;font-size:10px" onclick="checkOut('${b.id}')">Check Out</button>`:''}
           <button class="btn" style="padding:4px 8px;font-size:10px;background:var(--red-lt);color:var(--red);border:1px solid var(--red)" onclick="deleteBooking('${b.id}','${b.guest_name}')">🗑 Delete</button>
         ` : ''}
@@ -1194,6 +1232,125 @@ async function checkOut(id) {
   await db.from('bookings').update({ status:'checked_out', checked_out_by: currentUser.name, checkout_actual: new Date().toISOString() }).eq('id',id);
   showAlert('bookings-alert','Guest checked out successfully','success');
   loadBookings(); loadDashboard();
+}
+
+// ══════════════════════════════════════════
+// ROOM TRANSFER
+// ══════════════════════════════════════════
+var transferBookingData = null;
+
+async function openTransferModal(id) {
+  const { data: b } = await db.from('bookings').select('*').eq('id', id).single();
+  if (!b) return;
+  transferBookingData = b;
+
+  document.getElementById('transfer-b-id').value = b.id;
+  document.getElementById('transfer-guest-name').textContent = b.guest_name;
+  document.getElementById('transfer-current-room').textContent = 'Current: Room ' + b.room_num + ' — Bed ' + b.bed_id;
+  document.getElementById('transfer-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('transfer-date').min = b.checkin_date || '';
+  document.getElementById('transfer-modal-alert').innerHTML = '';
+
+  // Load all rooms with free bed counts (excluding current bed which will free up)
+  const { data: bks } = await db.from('bookings').select('bed_id,room_num').eq('status','checked_in');
+  const taken = (bks||[]).map(x => x.bed_id).filter(bedId => bedId !== b.bed_id);
+  const allRooms = [...ROOMS.male, ...ROOMS.female];
+  const roomSel = document.getElementById('transfer-room');
+  roomSel.innerHTML = '<option value="">Select new room...</option>';
+
+  const menGroup = document.createElement('optgroup');
+  menGroup.label = 'Floor 1 — Men';
+  ROOMS.male.forEach(r => {
+    const free = r.beds.filter(bd => !taken.includes(bd)).length;
+    const opt = document.createElement('option');
+    opt.value = r.num;
+    opt.textContent = `Room ${r.num} (${free} free)${r.num === b.room_num ? ' — current' : ''}`;
+    if (free === 0) opt.disabled = true;
+    menGroup.appendChild(opt);
+  });
+  roomSel.appendChild(menGroup);
+
+  const womenGroup = document.createElement('optgroup');
+  womenGroup.label = 'Floor 2 — Women';
+  ROOMS.female.forEach(r => {
+    const free = r.beds.filter(bd => !taken.includes(bd)).length;
+    const opt = document.createElement('option');
+    opt.value = r.num;
+    opt.textContent = `Room ${r.num} (${free} free)${r.num === b.room_num ? ' — current' : ''}`;
+    if (free === 0) opt.disabled = true;
+    womenGroup.appendChild(opt);
+  });
+  roomSel.appendChild(womenGroup);
+
+  document.getElementById('transfer-bed').innerHTML = '<option value="">Select room first</option>';
+  document.getElementById('transfer-modal').classList.add('show');
+}
+
+async function loadTransferBeds() {
+  const roomNum = document.getElementById('transfer-room').value;
+  const bedSel = document.getElementById('transfer-bed');
+  if (!roomNum) { bedSel.innerHTML = '<option value="">Select room first</option>'; return; }
+  const allRooms = [...ROOMS.male, ...ROOMS.female];
+  const room = allRooms.find(r => r.num === roomNum);
+  if (!room) return;
+
+  const { data: bks } = await db.from('bookings').select('bed_id').eq('status','checked_in');
+  const taken = (bks||[]).map(x => x.bed_id).filter(bedId => bedId !== transferBookingData.bed_id);
+
+  bedSel.innerHTML = '<option value="">Select bed...</option>' +
+    room.beds.map(bd => `<option value="${bd}" ${taken.includes(bd)?'disabled':''}>${bd} ${taken.includes(bd)?'(Occupied)':'(Free)'}</option>`).join('');
+}
+
+async function confirmTransfer() {
+  const id = document.getElementById('transfer-b-id').value;
+  const transferDate = document.getElementById('transfer-date').value;
+  const newRoom = document.getElementById('transfer-room').value;
+  const newBed = document.getElementById('transfer-bed').value;
+  const alertEl = document.getElementById('transfer-modal-alert');
+
+  if (!transferDate || !newRoom || !newBed) {
+    alertEl.innerHTML = '<div class="alert alert-error">Please fill all required fields</div>'; return;
+  }
+  if (newRoom === transferBookingData.room_num && newBed === transferBookingData.bed_id) {
+    alertEl.innerHTML = '<div class="alert alert-error">This is already the guest\\'s current room/bed</div>'; return;
+  }
+
+  // 1. Log the transfer in room_history
+  const { error: histError } = await db.from('room_history').insert({
+    booking_id: id,
+    guest_name: transferBookingData.guest_name,
+    from_room: transferBookingData.room_num,
+    from_bed: transferBookingData.bed_id,
+    to_room: newRoom,
+    to_bed: newBed,
+    from_date: transferBookingData.checkin_date,
+    to_date: transferDate,
+    transferred_by: currentUser.name,
+    transferred_at: new Date().toISOString()
+  });
+
+  if (histError) {
+    alertEl.innerHTML = `<div class="alert alert-error">History log error: ${histError.message}</div>`;
+    return;
+  }
+
+  // 2. Update the booking's current room/bed
+  const { error } = await db.from('bookings').update({
+    room_num: newRoom,
+    bed_id: newBed,
+    updated_by: currentUser.name,
+    updated_at: new Date().toISOString()
+  }).eq('id', id);
+
+  if (error) {
+    alertEl.innerHTML = `<div class="alert alert-error">${error.message}</div>`;
+    return;
+  }
+
+  closeModal('transfer-modal');
+  showAlert('bookings-alert', `✓ ${transferBookingData.guest_name} transferred to Room ${newRoom} — Bed ${newBed}`, 'success');
+  loadBookings();
+  loadDashboard();
 }
 
 async function deleteBooking(id, name) {
