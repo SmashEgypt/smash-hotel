@@ -165,6 +165,61 @@ body { font-family: 'Inter', Arial, sans-serif; background: var(--gray-lt); colo
 .bed-taken { background: var(--red); }
 .room-card .r-count { font-size: 10px; color: var(--gray); font-weight: 600; }
 
+/* ── ROOMS DASHBOARD (modern tiles) ── */
+.hero-occ { background: var(--navy); border-radius: 24px; padding: 22px; margin-bottom: 14px; position: relative; overflow: hidden; display: flex; align-items: center; gap: 18px; }
+.hero-occ::before { content: ''; position: absolute; bottom: -60px; right: -50px; width: 180px; height: 180px; border-radius: 50%; background: radial-gradient(circle, rgba(255,242,0,.1), transparent 70%); }
+.ring-wrap { flex-shrink: 0; position: relative; width: 84px; height: 84px; }
+.ring-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.ring-pct { font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 800; color: white; line-height: 1; }
+.ring-lbl { font-size: 7px; color: rgba(255,255,255,.5); letter-spacing: .5px; text-transform: uppercase; margin-top: 2px; }
+.hero-occ-info { flex: 1; position: relative; z-index: 1; }
+.hero-occ-title { font-size: 10px; color: rgba(255,255,255,.5); font-weight: 600; letter-spacing: .5px; text-transform: uppercase; margin-bottom: 6px; }
+.hero-occ-stats { display: flex; gap: 14px; }
+.hero-occ-stat .n { font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 700; color: white; }
+.hero-occ-stat .l { font-size: 9px; color: rgba(255,255,255,.45); margin-top: 1px; }
+
+.filter-row { display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto; padding-bottom: 2px; }
+.filter-pill { flex-shrink: 0; padding: 8px 15px; border-radius: 30px; font-size: 11px; font-weight: 700; background: var(--white); border: 1px solid var(--border); color: var(--gray); display: flex; align-items: center; gap: 6px; cursor: pointer; font-family: inherit; }
+.filter-pill.active { background: var(--navy); color: white; border-color: var(--navy); }
+.filter-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+.floor-section { margin-bottom: 18px; }
+.floor-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 0 2px; }
+.floor-head-left { display: flex; align-items: center; gap: 8px; }
+.floor-icon { width: 30px; height: 30px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+.floor-title { font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700; color: var(--dark); }
+.floor-sub { font-size: 10px; color: var(--gray); }
+.floor-occ-badge { font-size: 10px; font-weight: 700; padding: 5px 10px; border-radius: 20px; }
+
+.rooms-grid-modern { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.room-tile { background: var(--white); border-radius: 18px; padding: 14px; border: 1px solid var(--border); position: relative; overflow: hidden; transition: .2s; cursor: pointer; }
+.room-tile:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(21,47,82,.12); }
+.room-tile.full { background: var(--navy); border-color: var(--navy); }
+.room-tile.partial { background: linear-gradient(135deg, #fff 0%, #FFFBE0 100%); border-color: #FFE974; }
+.room-tile-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+.room-tile-num { font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 800; }
+.room-tile.full .room-tile-num { color: white; }
+.room-tile.partial .room-tile-num, .room-tile.free .room-tile-num { color: var(--dark); }
+.room-tile-status-icon { width: 26px; height: 26px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+.room-tile-occ-row { display: flex; gap: 4px; margin-bottom: 8px; }
+.occ-dot { flex: 1; height: 6px; border-radius: 4px; }
+.room-tile.full .occ-dot { background: var(--yellow); }
+.room-tile.partial .occ-dot.on { background: var(--navy); }
+.room-tile.partial .occ-dot.off { background: #EAEAEA; }
+.room-tile.free .occ-dot { background: #EAEAEA; }
+.room-tile-foot { display: flex; justify-content: space-between; align-items: baseline; }
+.room-tile-count { font-size: 10px; font-weight: 700; }
+.room-tile.full .room-tile-count { color: rgba(255,255,255,.7); }
+.room-tile.partial .room-tile-count, .room-tile.free .room-tile-count { color: var(--gray); }
+.room-tile-tag { font-size: 8px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; padding: 3px 7px; border-radius: 8px; }
+.room-tile.full .room-tile-tag { background: rgba(255,242,0,.15); color: var(--yellow); }
+.room-tile.partial .room-tile-tag { background: #FFF3B0; color: #8A6D00; }
+.room-tile.free .room-tile-tag { background: var(--green-lt); color: var(--green); }
+
+.legend-row { display: flex; justify-content: center; gap: 16px; margin-top: 6px; padding: 14px 0 4px; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--gray); font-weight: 600; }
+.legend-swatch { width: 10px; height: 10px; border-radius: 4px; flex-shrink: 0; }
+
 /* ── FLOOR LABEL ── */
 .floor-label {
   font-size: 11px; font-weight: 700; color: white;
@@ -173,10 +228,10 @@ body { font-family: 'Inter', Arial, sans-serif; background: var(--gray-lt); colo
 }
 
 /* ── GUESTS TABLE ── */
-.guests-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.guests-table { width: 100%; border-collapse: collapse; font-size: 12px; direction: ltr; }
 .guests-table th {
   background: var(--navy); color: white; padding: 10px 12px;
-  text-align: right; font-weight: 700; letter-spacing: .3px; font-size: 11px;
+  text-align: left; font-weight: 700; letter-spacing: .3px; font-size: 11px;
 }
 .guests-table th:first-child { border-radius: 12px 0 0 0; }
 .guests-table th:last-child { border-radius: 0 12px 0 0; }
@@ -320,15 +375,75 @@ body { font-family: 'Inter', Arial, sans-serif; background: var(--gray-lt); colo
     </div>
 
     <!-- ROOMS -->
-    <div class="page" id="page-rooms">
-      <div class="card">
-        <div class="floor-label" style="background:var(--purple)">Floor 2 — Women (Rooms 201-207)</div>
-        <div class="rooms-grid" id="rooms-women"></div>
+    <div class="page" id="page-rooms" style="direction: ltr;">
+
+      <!-- HERO OCCUPANCY RING -->
+      <div class="hero-occ">
+        <div class="ring-wrap">
+          <svg width="84" height="84" viewBox="0 0 84 84">
+            <circle cx="42" cy="42" r="36" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="9"/>
+            <circle id="occ-ring-fill" cx="42" cy="42" r="36" fill="none" stroke="#fff200" stroke-width="9" stroke-linecap="round"
+              stroke-dasharray="226.2" stroke-dashoffset="226.2" transform="rotate(-90 42 42)" style="transition:stroke-dashoffset .6s ease"/>
+          </svg>
+          <div class="ring-center">
+            <div class="ring-pct" id="rooms-occ-pct">—%</div>
+            <div class="ring-lbl">Full</div>
+          </div>
+        </div>
+        <div class="hero-occ-info">
+          <div class="hero-occ-title">Live Occupancy</div>
+          <div class="hero-occ-stats">
+            <div class="hero-occ-stat"><div class="n" id="rooms-occ-beds">—</div><div class="l">Occupied</div></div>
+            <div class="hero-occ-stat"><div class="n" id="rooms-free-beds">—</div><div class="l">Free beds</div></div>
+            <div class="hero-occ-stat"><div class="n" id="rooms-total-rooms">—</div><div class="l">Rooms</div></div>
+          </div>
+        </div>
       </div>
-      <div class="card">
-        <div class="floor-label" style="background:#1B2D5B">Floor 1 — Men (Rooms 101-107)</div>
-        <div class="rooms-grid" id="rooms-men"></div>
+
+      <!-- FILTER PILLS -->
+      <div class="filter-row">
+        <button class="filter-pill active" onclick="setRoomFilter('all', this)">All rooms</button>
+        <button class="filter-pill" onclick="setRoomFilter('full', this)"><span class="filter-dot" style="background:var(--navy)"></span>Full</button>
+        <button class="filter-pill" onclick="setRoomFilter('partial', this)"><span class="filter-dot" style="background:#FFE974"></span>Partial</button>
+        <button class="filter-pill" onclick="setRoomFilter('free', this)"><span class="filter-dot" style="background:#0F6E56"></span>Free</button>
       </div>
+
+      <!-- FLOOR 2 WOMEN -->
+      <div class="floor-section">
+        <div class="floor-head">
+          <div class="floor-head-left">
+            <div class="floor-icon" style="background:var(--purp-lt)">👩</div>
+            <div>
+              <div class="floor-title">Floor 2 — Women</div>
+              <div class="floor-sub">Rooms 201–207</div>
+            </div>
+          </div>
+          <div class="floor-occ-badge" id="floor-women-badge" style="background:var(--purp-lt);color:var(--purple)">—/—</div>
+        </div>
+        <div class="rooms-grid-modern" id="rooms-women"></div>
+      </div>
+
+      <!-- FLOOR 1 MEN -->
+      <div class="floor-section">
+        <div class="floor-head">
+          <div class="floor-head-left">
+            <div class="floor-icon" style="background:var(--blue-lt)">🧑</div>
+            <div>
+              <div class="floor-title">Floor 1 — Men</div>
+              <div class="floor-sub">Rooms 101–107</div>
+            </div>
+          </div>
+          <div class="floor-occ-badge" id="floor-men-badge" style="background:var(--blue-lt);color:var(--navy)">—/—</div>
+        </div>
+        <div class="rooms-grid-modern" id="rooms-men"></div>
+      </div>
+
+      <div class="legend-row">
+        <div class="legend-item"><span class="legend-swatch" style="background:var(--navy)"></span>Full</div>
+        <div class="legend-item"><span class="legend-swatch" style="background:#FFE974"></span>Partial</div>
+        <div class="legend-item"><span class="legend-swatch" style="background:#0F6E56"></span>Free</div>
+      </div>
+
     </div>
 
     <!-- BOOKINGS -->
@@ -534,7 +649,7 @@ body { font-family: 'Inter', Arial, sans-serif; background: var(--gray-lt); colo
         <option value="quad">Quad — 4 persons ($23/night)</option>
       </select>
     </div>
-    <div id="cost-display" style="display:none;background:linear-gradient(135deg,#0D1B3E,#1B2D5B);border-radius:10px;padding:12px 14px;margin-bottom:8px">
+    <div id="cost-display" style="display:none;background:linear-gradient(135deg,#0D1B3E,#1B2D5B);border-radius:10px;padding:12px 14px;margin-bottom:8px;direction:ltr">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
         <span style="color:rgba(255,255,255,.7);font-size:11px">Room Rate</span>
         <span style="color:white;font-size:11px;font-weight:600" id="cost-rate">—</span>
@@ -616,7 +731,7 @@ body { font-family: 'Inter', Arial, sans-serif; background: var(--gray-lt); colo
         <option value="quad">Quad — 4 persons ($23/night)</option>
       </select>
     </div>
-    <div id="edit-cost-display" style="display:none;background:linear-gradient(135deg,#0D1B3E,#1B2D5B);border-radius:10px;padding:12px 14px;margin-bottom:8px">
+    <div id="edit-cost-display" style="display:none;background:linear-gradient(135deg,#0D1B3E,#1B2D5B);border-radius:10px;padding:12px 14px;margin-bottom:8px;direction:ltr">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
         <span style="color:rgba(255,255,255,.7);font-size:11px">Room Rate</span>
         <span style="color:white;font-size:11px;font-weight:600" id="edit-cost-rate">—</span>
@@ -691,7 +806,7 @@ body { font-family: 'Inter', Arial, sans-serif; background: var(--gray-lt); colo
       Booking Details
       <button class="modal-close" onclick="closeModal('view-booking-modal')">×</button>
     </div>
-    <div id="view-booking-content"></div>
+    <div id="view-booking-content" style="direction: ltr;"></div>
     <button class="btn btn-ghost btn-full" style="margin-top:10px" onclick="closeModal('view-booking-modal');openEditModal(document.getElementById('view-booking-id').value)">✏️ Edit This Booking</button>
     <input type="hidden" id="view-booking-id" />
   </div>
@@ -926,29 +1041,75 @@ async function loadDashboard() {
 // ══════════════════════════════════════════
 // ROOMS
 // ══════════════════════════════════════════
+var currentRoomFilter = 'all';
+
 async function loadRooms() {
   const { data: bks } = await db.from('bookings').select('bed_id,guest_name').eq('status','checked_in');
   const takenMap = {};
   (bks||[]).forEach(b => takenMap[b.bed_id] = b.guest_name);
 
+  // ── Overall stats for hero ring ──
+  const allRoomsArr = [...ROOMS.male, ...ROOMS.female];
+  const totalBeds = allRoomsArr.reduce((s,r) => s + r.beds.length, 0);
+  const occupiedBeds = allRoomsArr.reduce((s,r) => s + r.beds.filter(b => takenMap[b]).length, 0);
+  const freeBeds = totalBeds - occupiedBeds;
+  const occPct = totalBeds ? Math.round((occupiedBeds/totalBeds)*100) : 0;
+
+  document.getElementById('rooms-occ-pct').textContent = occPct + '%';
+  document.getElementById('rooms-occ-beds').textContent = occupiedBeds;
+  document.getElementById('rooms-free-beds').textContent = freeBeds;
+  document.getElementById('rooms-total-rooms').textContent = allRoomsArr.length;
+  const ringCircumference = 226.2;
+  const ringEl = document.getElementById('occ-ring-fill');
+  if (ringEl) ringEl.style.strokeDashoffset = ringCircumference - (ringCircumference * occPct / 100);
+
+  // ── Per-floor stats ──
+  const womenOcc = ROOMS.female.reduce((s,r) => s + r.beds.filter(b => takenMap[b]).length, 0);
+  const womenTotal = ROOMS.female.reduce((s,r) => s + r.beds.length, 0);
+  const menOcc = ROOMS.male.reduce((s,r) => s + r.beds.filter(b => takenMap[b]).length, 0);
+  const menTotal = ROOMS.male.reduce((s,r) => s + r.beds.length, 0);
+  document.getElementById('floor-women-badge').textContent = womenOcc + '/' + womenTotal;
+  document.getElementById('floor-men-badge').textContent = menOcc + '/' + menTotal;
+
   ['male','female'].forEach(gender => {
     const container = document.getElementById('rooms-' + (gender==='male'?'men':'women'));
     container.innerHTML = '';
     ROOMS[gender].forEach(room => {
-      const freeCnt = room.beds.filter(b => !takenMap[b]).length;
+      const takenCnt = room.beds.filter(b => takenMap[b]).length;
+      const freeCnt = room.beds.length - takenCnt;
+      const state = takenCnt === 0 ? 'free' : takenCnt === room.beds.length ? 'full' : 'partial';
+
+      if (currentRoomFilter !== 'all' && currentRoomFilter !== state) return;
+
+      const icon = state === 'full' ? '🔒' : state === 'partial' ? '◐' : '✓';
+      const tag = state === 'full' ? 'Full' : state === 'partial' ? 'Partial' : 'Free';
+
       const div = document.createElement('div');
-      div.className = 'room-card';
+      div.className = 'room-tile ' + state;
       div.innerHTML = `
-        <div class="r-num">Room ${room.num}</div>
-        <div class="r-beds">${room.beds.map(b =>
-          `<div class="bed-dot ${takenMap[b]?'bed-taken':'bed-free'}" title="${takenMap[b]||'Free'}"></div>`
+        <div class="room-tile-top">
+          <div class="room-tile-num">${room.num}</div>
+          <div class="room-tile-status-icon" style="background:${state==='full'?'rgba(255,242,0,.15)':state==='partial'?'#FFF3B0':'var(--green-lt)'}">${icon}</div>
+        </div>
+        <div class="room-tile-occ-row">${room.beds.map(b =>
+          `<div class="occ-dot ${state==='partial' ? (takenMap[b]?'on':'off') : ''}"></div>`
         ).join('')}</div>
-        <div class="r-count">${freeCnt}/${room.beds.length} free</div>
+        <div class="room-tile-foot">
+          <span class="room-tile-count">${freeCnt}/${room.beds.length} free</span>
+          <span class="room-tile-tag">${tag}</span>
+        </div>
       `;
       div.onclick = () => showRoomDetail(room, takenMap, gender);
       container.appendChild(div);
     });
   });
+}
+
+function setRoomFilter(filter, btn) {
+  currentRoomFilter = filter;
+  document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  loadRooms();
 }
 
 function showRoomDetail(room, takenMap, gender) {
@@ -1482,7 +1643,7 @@ function loadCleaningChecklist() {
         </div>
       `).join('')}
       <div style="margin-top:12px;text-align:center">
-        <span id="clean-progress" style="font-size:12px;color:var(--gray)">0 / ${CLEANING_CHECKLIST.length} completed</span>
+        <span id="clean-progress" style="font-size:12px;color:var(--gray);direction:ltr;unicode-bidi:bidi-override">0 / ${CLEANING_CHECKLIST.length} completed</span>
       </div>
       <button class="btn btn-success btn-full" style="margin-top:10px" onclick="submitCleaning('${room}')">✓ Mark Room as Cleaned</button>
     </div>
