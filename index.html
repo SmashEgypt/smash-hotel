@@ -656,6 +656,19 @@
   </div>
 </div>
 
+<!-- ══ VIEW BOOKING MODAL ══ -->
+<div class="modal-overlay" id="view-booking-modal">
+  <div class="modal">
+    <div class="modal-title">
+      Booking Details
+      <button class="modal-close" onclick="closeModal('view-booking-modal')">×</button>
+    </div>
+    <div id="view-booking-content"></div>
+    <button class="btn btn-ghost btn-full" style="margin-top:10px" onclick="closeModal('view-booking-modal');openEditModal(document.getElementById('view-booking-id').value)">✏️ Edit This Booking</button>
+    <input type="hidden" id="view-booking-id" />
+  </div>
+</div>
+
 <!-- ══ VISITOR MODAL ══ -->
 <div class="modal-overlay" id="visitor-modal">
   <div class="modal">
@@ -1227,11 +1240,66 @@ async function saveBooking() {
   loadDashboard();
 }
 
+async function openViewModal(id) {
+  const { data: b } = await db.from('bookings').select('*').eq('id', id).single();
+  if (!b) return;
+  document.getElementById('view-booking-id').value = b.id;
+
+  let nights = '—';
+  let nightsNum = 0;
+  if (b.checkin_date && b.checkout_date) {
+    const d = Math.round((new Date(b.checkout_date) - new Date(b.checkin_date)) / 86400000);
+    if (d > 0) { nights = d + ' nights'; nightsNum = d; }
+  }
+  const rate = b.room_type && ROOM_RATES[b.room_type] ? ROOM_RATES[b.room_type] : 0;
+  const total = b.total_amount || (rate * nightsNum) || 0;
+
+  document.getElementById('view-booking-content').innerHTML = `
+    <div style="background:var(--blue-lt);border-radius:10px;padding:14px;margin-bottom:12px">
+      <div style="font-size:10px;font-weight:700;color:var(--blue);letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px">👤 Personal Information</div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px"><span style="color:var(--gray)">Name</span><span style="font-weight:600">${b.guest_name}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px"><span style="color:var(--gray)">Nationality</span><span style="font-weight:600">${b.nationality || '—'}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px"><span style="color:var(--gray)">ID / Passport</span><span style="font-weight:600">${b.id_number || '—'}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px"><span style="color:var(--gray)">Mobile</span><span style="font-weight:600">${b.mobile || '—'}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px"><span style="color:var(--gray)">Gender</span><span style="font-weight:600">${b.gender === 'male' ? 'Male' : 'Female'}</span></div>
+    </div>
+    <div style="background:#FFF8E1;border-radius:10px;padding:14px;margin-bottom:12px">
+      <div style="font-size:10px;font-weight:700;color:#D4A017;letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px">🏆 Sports Information</div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px"><span style="color:var(--gray)">Sport</span><span style="font-weight:600">${b.sport || '—'}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px"><span style="color:var(--gray)">Role</span><span style="font-weight:600">${b.role || '—'}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px"><span style="color:var(--gray)">Tournament</span><span style="font-weight:600">${b.tournament || '—'}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px"><span style="color:var(--gray)">Team</span><span style="font-weight:600">${b.team || '—'}</span></div>
+    </div>
+    <div style="background:#E8F5E9;border-radius:10px;padding:14px;margin-bottom:12px">
+      <div style="font-size:10px;font-weight:700;color:#1B5E20;letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px">🛏 Stay Details</div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px"><span style="color:var(--gray)">Room / Bed</span><span style="font-weight:600">Room ${b.room_num} — ${b.bed_id}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px"><span style="color:var(--gray)">Check-in</span><span style="font-weight:600">${b.checkin_date || '—'}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px"><span style="color:var(--gray)">Check-out</span><span style="font-weight:600">${b.checkout_date || '—'}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px"><span style="color:var(--gray)">Meals</span><span style="font-weight:600">${b.meals || 'No Meals'}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px"><span style="color:var(--gray)">Status</span><span class="status-badge ${b.status==='checked_in'?'s-in':b.status==='checked_out'?'s-out':'s-pending'}">${b.status}</span></div>
+    </div>
+    ${currentUser.role !== 'hk' ? `
+    <div style="background:linear-gradient(135deg,#0D1B3E,#1B2D5B);border-radius:10px;padding:14px">
+      <div style="font-size:10px;font-weight:700;color:#D4A017;letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px">💰 Financial Summary</div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px"><span style="color:rgba(255,255,255,.6)">Room Type</span><span style="color:white;font-weight:600">${b.room_type || '—'}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px"><span style="color:rgba(255,255,255,.6)">Rate / Night</span><span style="color:white;font-weight:600">${rate ? '$'+rate : '—'}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px"><span style="color:rgba(255,255,255,.6)">Nights</span><span style="color:white;font-weight:600">${nights}</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;margin-top:6px;border-top:1px solid rgba(255,255,255,.15)">
+        <span style="color:rgba(255,255,255,.8);font-size:13px;font-weight:600">Total Amount</span>
+        <span style="color:#D4A017;font-size:18px;font-weight:900">${total ? '$'+total : '—'}</span>
+      </div>
+    </div>` : ''}
+  `;
+  document.getElementById('view-booking-modal').classList.add('show');
+}
+
 async function checkOut(id) {
   if (!confirm('Confirm check-out for this guest?')) return;
+  const { data: b } = await db.from('bookings').select('*').eq('id', id).single();
   await db.from('bookings').update({ status:'checked_out', checked_out_by: currentUser.name, checkout_actual: new Date().toISOString() }).eq('id',id);
   showAlert('bookings-alert','Guest checked out successfully','success');
   loadBookings(); loadDashboard();
+  if (b) printCheckoutReceipt(b);
 }
 
 // ══════════════════════════════════════════
@@ -1503,6 +1571,7 @@ var currentPeriod = 'today';
 var allReportData = [];
 
 function switchReport(type, btn) {
+  if (type === 'financial' && currentUser.role === 'hk') return; // HK has no financial access
   currentReport = type;
   document.querySelectorAll('.rep-tab').forEach(b => {
     b.style.background = 'transparent';
@@ -1723,6 +1792,7 @@ function renderGuestsReport(bks) {
 
 // ── ③ FINANCIAL ──
 async function renderFinancialReport(bks) {
+  if (currentUser.role === 'hk') { document.getElementById('report-content').innerHTML = '<div class="loading">Access restricted</div>'; return; }
   if (!bks.length) { document.getElementById('report-content').innerHTML = '<div class="loading">لا يوجد بيانات</div>'; return; }
 
   // Load ALL bookings for monthly comparison
@@ -2004,6 +2074,7 @@ function renderSportsReport(bks) {
 
 // ── PRINT & EXPORT ──
 function printCurrentReport() {
+  if (currentReport === 'financial' && currentUser.role === 'hk') return;
   var content = document.getElementById('report-content').innerHTML;
   var titles = {occupancy:'تقرير الإشغال — Occupancy Report', guests:'تقرير النزلاء — Guests Report', financial:'التقرير المالي — Financial Report', sports:'التقرير الرياضي — Sports Report'};
   var now = new Date();
@@ -2050,10 +2121,18 @@ function printCurrentReport() {
 function exportCurrentCSV() {
   var bks = allReportData;
   if (!bks.length) { alert('لا يوجد بيانات'); return; }
+  if (currentReport === 'financial' && currentUser.role === 'hk') return;
+  var hideAmount = currentUser.role === 'hk';
   var rows, filename;
   if (currentReport === 'occupancy' || currentReport === 'guests') {
-    rows = [['الغرفة','السرير','الاسم','الجنسية','الجنس','من','إلى','صلة','الرياضة','البطولة','الفريق','المدرب المرجعي','الحالة','الإجمالي']];
-    bks.forEach(b=>rows.push([b.room_num,b.bed_id,b.guest_name,b.nationality||'',b.gender||'',b.checkin_date||'',b.checkout_date||'',b.role||'',b.sport||'',b.tournament||'',b.team||'',b.reference_coach||'',b.status,b.total_amount||0]));
+    rows = hideAmount
+      ? [['الغرفة','السرير','الاسم','الجنسية','الجنس','من','إلى','صلة','الرياضة','البطولة','الفريق','المدرب المرجعي','الحالة']]
+      : [['الغرفة','السرير','الاسم','الجنسية','الجنس','من','إلى','صلة','الرياضة','البطولة','الفريق','المدرب المرجعي','الحالة','الإجمالي']];
+    bks.forEach(b=>{
+      var row = [b.room_num,b.bed_id,b.guest_name,b.nationality||'',b.gender||'',b.checkin_date||'',b.checkout_date||'',b.role||'',b.sport||'',b.tournament||'',b.team||'',b.reference_coach||'',b.status];
+      if (!hideAmount) row.push(b.total_amount||0);
+      rows.push(row);
+    });
     filename = 'SSC_Guests_';
   } else if (currentReport === 'financial') {
     rows = [['الاسم','الغرفة','نوع الغرفة','الليالي','الإجمالي','البطولة','الحالة']];
@@ -2080,6 +2159,246 @@ function exportCurrentCSV() {
 // HELPERS
 // ══════════════════════════════════════════
 function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+function getLogoBase64() {
+  var img = document.querySelector('.topbar-logo');
+  if (img && img.src && img.src.startsWith('data:')) {
+    return img.src.split(',')[1];
+  }
+  return '';
+}
+
+function printCheckoutReceipt(b) {
+  var nights = '—';
+  var nightsNum = 0;
+  if (b.checkin_date && b.checkout_date) {
+    var d = Math.round((new Date(b.checkout_date) - new Date(b.checkin_date)) / 86400000);
+    if (d > 0) { nights = d + ' nights'; nightsNum = d; }
+  }
+  var rate = b.room_type && ROOM_RATES[b.room_type] ? ROOM_RATES[b.room_type] : 0;
+  var total = b.total_amount || (rate * nightsNum) || 0;
+  var now = new Date();
+  var checkoutDate = now.toLocaleDateString('en-GB', { day:'2-digit', month:'long', year:'numeric' });
+  var checkoutTime = now.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+  var receiptNum = 'SSC-' + now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0') + '-' + String(Math.floor(Math.random()*9000)+1000);
+  var logo = getLogoBase64();
+
+  var w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Receipt ${receiptNum} — ${b.guest_name}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',Arial,sans-serif;background:#e8ecf0;padding:20px;color:#1a1a1a}
+.a4{width:210mm;min-height:297mm;margin:0 auto;background:white;box-shadow:0 8px 40px rgba(0,0,0,.15);position:relative;overflow:hidden}
+.header{background:linear-gradient(135deg,#0D1B3E 0%,#1B2D5B 60%,#243670 100%);padding:28px 36px 20px;display:flex;justify-content:space-between;align-items:flex-start;position:relative;overflow:hidden}
+.header::after{content:'';position:absolute;bottom:-30px;right:-30px;width:120px;height:120px;border-radius:50%;background:rgba(212,160,23,.1)}
+.hotel-name{color:white;font-size:26px;font-weight:900;letter-spacing:2px;line-height:1}
+.hotel-sub{color:#D4A017;font-size:9px;letter-spacing:3px;font-weight:600;text-transform:uppercase;margin-top:4px}
+.hotel-contact{margin-top:10px}
+.hotel-contact p{color:rgba(255,255,255,.6);font-size:9px;line-height:1.8}
+.header-right{text-align:right}
+.receipt-title{color:#D4A017;font-size:20px;font-weight:800;letter-spacing:1px;text-transform:uppercase}
+.receipt-num{color:rgba(255,255,255,.8);font-size:11px;margin-top:4px}
+.receipt-date{color:rgba(255,255,255,.6);font-size:10px;margin-top:2px}
+.gold-bar{height:4px;background:linear-gradient(90deg,#D4A017,#F0C030,#D4A017)}
+.body{padding:28px 36px}
+.status-banner{display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#EEF2FF,#F8F9FF);border:1px solid #C5CAE9;border-radius:10px;padding:12px 18px;margin-bottom:20px}
+.guest-name{font-size:18px;font-weight:800;color:#1B2D5B}
+.guest-sub{font-size:11px;color:#888;margin-top:2px}
+.checkout-badge{background:#1B2D5B;color:white;font-size:10px;font-weight:700;letter-spacing:.5px;padding:5px 14px;border-radius:20px;text-transform:uppercase;display:inline-block;margin-bottom:4px}
+.checkout-time{font-size:10px;color:#888}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.section{border:1px solid #EEF2FF;border-radius:10px;overflow:hidden}
+.section-head{background:linear-gradient(90deg,#1B2D5B,#243670);padding:8px 14px;display:flex;align-items:center;gap:6px}
+.section-head .icon{font-size:13px}
+.section-head .title{color:white;font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase}
+.section-body{padding:10px 14px}
+.info-row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #F8F9FF;font-size:11px}
+.info-row:last-child{border-bottom:none}
+.info-row .lbl{color:#888}
+.info-row .val{color:#1a1a1a;font-weight:600;text-align:right}
+.section-full{border:1px solid #EEF2FF;border-radius:10px;overflow:hidden;margin-bottom:16px}
+.sports-grid{padding:10px 14px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.sport-item .s-lbl{font-size:9px;color:#888;margin-bottom:2px}
+.sport-item .s-val{font-size:11px;font-weight:600;color:#1B2D5B}
+.nights-table{width:100%;border-collapse:collapse;font-size:11px}
+.nights-table thead tr{background:linear-gradient(90deg,#1B2D5B,#243670)}
+.nights-table th{color:rgba(255,255,255,.8);padding:8px 14px;text-align:left;font-weight:600}
+.nights-table td{padding:8px 14px;border-bottom:1px solid #F0F2F8;color:#1a1a1a}
+.financial{background:linear-gradient(135deg,#0D1B3E,#1B2D5B);border-radius:12px;padding:20px 24px;margin-bottom:16px}
+.fin-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.08)}
+.fin-row .lbl{color:rgba(255,255,255,.6);font-size:11px}
+.fin-row .val{color:white;font-size:12px;font-weight:600}
+.fin-divider{height:1px;background:rgba(255,255,255,.15);margin:10px 0}
+.grand-total-row{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+.grand-total-row .lbl{color:rgba(255,255,255,.8);font-size:13px;font-weight:700;text-transform:uppercase}
+.grand-total-row .val{color:#D4A017;font-size:28px;font-weight:900}
+.payment-status{border:2px solid #1B2D5B;border-radius:10px;padding:12px 18px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center}
+.ps-label{font-size:10px;color:#888;font-weight:600;letter-spacing:.5px;text-transform:uppercase}
+.ps-method{font-size:13px;color:#1B2D5B;font-weight:700;margin-top:2px}
+.ps-status{background:#E8F5E9;color:#1B5E20;font-size:11px;font-weight:700;padding:5px 14px;border-radius:20px}
+.notes-box{border:1px dashed #C5CAE9;border-radius:10px;padding:12px 16px;margin-bottom:16px}
+.notes-label{font-size:10px;font-weight:700;color:#888;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px}
+.notes-line{height:1px;background:#EEF2FF;margin:10px 0}
+.signature-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px}
+.sig-box{border-top:1.5px solid #1B2D5B;padding-top:6px;text-align:center}
+.sig-label{font-size:9px;color:#888;font-weight:600;letter-spacing:.5px;text-transform:uppercase}
+.sig-space{height:40px}
+.footer{background:#F8F9FF;border-top:2px solid #D4A017;padding:14px 36px;display:flex;justify-content:space-between;align-items:center}
+.footer-left p{font-size:9px;color:#888;line-height:1.8}
+.thank-you{font-size:12px;font-weight:800;color:#1B2D5B}
+.tagline{font-size:9px;color:#888;margin-top:2px}
+.watermark{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-30deg);font-size:80px;font-weight:900;color:rgba(27,45,91,.03);letter-spacing:8px;pointer-events:none;white-space:nowrap}
+@media print{body{padding:0;background:white}.a4{box-shadow:none}.no-print{display:none}@page{size:A4;margin:0}}
+</style>
+</head>
+<body>
+
+<div class="no-print" style="text-align:center;margin-bottom:16px;display:flex;gap:10px;justify-content:center">
+  <button onclick="window.print()" style="background:#1B2D5B;color:white;border:none;padding:10px 24px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">🖨 Print A4</button>
+  <button onclick="window.close()" style="background:#f5f5f5;color:#555;border:1px solid #ddd;padding:10px 20px;border-radius:8px;font-size:13px;cursor:pointer">✕ Close</button>
+</div>
+
+<div class="a4">
+  <div class="watermark">SMASH</div>
+
+  <div class="header">
+    <div class="header-left">
+      ${logo ? `<img src="data:image/jpeg;base64,${logo}" style="height:40px;margin-bottom:8px;display:block" alt="SSC">` : ''}
+      <div class="hotel-name">SMASH</div>
+      <div class="hotel-sub">Sporting Club · Accommodation</div>
+      <div class="hotel-contact">
+        <p>📍 Cairo, Egypt</p>
+        <p>🌐 smashsportingclub.com</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="receipt-title">Check-out Receipt</div>
+      <div class="receipt-num">Receipt # ${receiptNum}</div>
+      <div class="receipt-date">Date: ${checkoutDate}</div>
+      <div class="receipt-date" style="color:#D4A017;margin-top:4px">Time: ${checkoutTime}</div>
+    </div>
+  </div>
+  <div class="gold-bar"></div>
+
+  <div class="body">
+
+    <div class="status-banner">
+      <div>
+        <div class="guest-name">${b.guest_name}</div>
+        <div class="guest-sub">${[b.nationality, b.sport, b.role].filter(Boolean).join(' · ')}</div>
+      </div>
+      <div style="text-align:right">
+        <div class="checkout-badge">✓ Checked Out</div>
+        <div class="checkout-time">${checkoutDate} at ${checkoutTime}</div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="section">
+        <div class="section-head"><span class="icon">👤</span><span class="title">Guest Information</span></div>
+        <div class="section-body">
+          <div class="info-row"><span class="lbl">Full Name</span><span class="val">${b.guest_name}</span></div>
+          <div class="info-row"><span class="lbl">Nationality</span><span class="val">${b.nationality || '—'}</span></div>
+          <div class="info-row"><span class="lbl">ID / Passport</span><span class="val">${b.id_number || '—'}</span></div>
+          <div class="info-row"><span class="lbl">Mobile</span><span class="val">${b.mobile || '—'}</span></div>
+          <div class="info-row"><span class="lbl">Gender</span><span class="val">${b.gender === 'male' ? 'Male — Floor 1' : 'Female — Floor 2'}</span></div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-head"><span class="icon">🛏</span><span class="title">Stay Details</span></div>
+        <div class="section-body">
+          <div class="info-row"><span class="lbl">Room / Bed</span><span class="val">Room ${b.room_num} — Bed ${b.bed_id}</span></div>
+          <div class="info-row"><span class="lbl">Room Type</span><span class="val">${b.room_type ? b.room_type.charAt(0).toUpperCase()+b.room_type.slice(1) : '—'}</span></div>
+          <div class="info-row"><span class="lbl">Check-in</span><span class="val">${b.checkin_date || '—'}${b.checkin_time ? ' at '+b.checkin_time : ''}</span></div>
+          <div class="info-row"><span class="lbl">Check-out</span><span class="val">${b.checkout_date || checkoutDate} at ${checkoutTime}</span></div>
+          <div class="info-row"><span class="lbl">Meals</span><span class="val">${b.meals || 'No Meals'}</span></div>
+        </div>
+      </div>
+    </div>
+
+    ${(b.sport || b.role || b.tournament || b.team) ? `
+    <div class="section-full">
+      <div class="section-head"><span class="icon">🏆</span><span class="title">Sports Information</span></div>
+      <div class="sports-grid">
+        <div class="sport-item"><div class="s-lbl">Sport</div><div class="s-val">${b.sport || '—'}</div></div>
+        <div class="sport-item"><div class="s-lbl">Role</div><div class="s-val">${b.role || '—'}</div></div>
+        <div class="sport-item"><div class="s-lbl">Tournament</div><div class="s-val">${b.tournament || '—'}</div></div>
+        <div class="sport-item"><div class="s-lbl">Team / Club</div><div class="s-val">${b.team || '—'}</div></div>
+      </div>
+    </div>` : ''}
+
+    <div class="section-full">
+      <div class="section-head"><span class="icon">📅</span><span class="title">Nights Breakdown</span></div>
+      <table class="nights-table">
+        <thead><tr><th>Description</th><th>Rate / Night</th><th>Nights</th><th>Amount</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Room Accommodation (${b.room_type ? b.room_type.charAt(0).toUpperCase()+b.room_type.slice(1) : 'Standard'})</td>
+            <td>${rate ? '$'+rate+'.00' : '—'}</td>
+            <td>${nightsNum || '—'}</td>
+            <td style="font-weight:700;color:#1B2D5B">${total ? '$'+total+'.00' : '—'}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="financial">
+      <div class="fin-row"><span class="lbl">Room Type</span><span class="val">${b.room_type ? b.room_type.charAt(0).toUpperCase()+b.room_type.slice(1) : '—'}</span></div>
+      <div class="fin-row"><span class="lbl">Rate per Night</span><span class="val">${rate ? '$'+rate+'.00' : '—'}</span></div>
+      <div class="fin-row"><span class="lbl">Number of Nights</span><span class="val">${nights}</span></div>
+      <div class="fin-row"><span class="lbl">Meals (not charged separately)</span><span class="val">${b.meals || 'No Meals'}</span></div>
+      <div class="fin-divider"></div>
+      <div class="grand-total-row">
+        <span class="lbl">TOTAL AMOUNT</span>
+        <span class="val">${total ? '$'+total+'.00' : '—'}</span>
+      </div>
+    </div>
+
+    <div class="payment-status">
+      <div>
+        <div class="ps-label">Payment Method</div>
+        <div class="ps-method">Cash / Bank Transfer</div>
+      </div>
+      <div class="ps-status">✓ SETTLED</div>
+    </div>
+
+    <div class="notes-box">
+      <div class="notes-label">Notes / Remarks</div>
+      <div class="notes-line"></div>
+      <div class="notes-line"></div>
+    </div>
+
+    <div class="signature-row">
+      <div class="sig-box"><div class="sig-space"></div><div class="sig-label">Guest Signature</div></div>
+      <div class="sig-box"><div class="sig-space"></div><div class="sig-label">Receptionist</div></div>
+      <div class="sig-box"><div class="sig-space"></div><div class="sig-label">Manager Approval</div></div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    <div class="footer-left">
+      <p>Receipt No: ${receiptNum} | Issued by: ${currentUser.name}</p>
+      <p>This is an official receipt from Smash Sporting Club Accommodation</p>
+    </div>
+    <div style="text-align:right">
+      <div class="thank-you">Thank You for Your Stay!</div>
+      <div class="tagline">Smash Sporting Club — Where Champions Stay</div>
+    </div>
+  </div>
+
+</div>
+
+<script>window.onload=function(){window.print()}<\/script>
+</body>
+</html>`);
+  w.document.close();
+}
 
 // Close modal when clicking outside
 document.addEventListener('click', function(e) {
